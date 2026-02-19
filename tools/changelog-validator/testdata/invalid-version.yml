@@ -1,0 +1,4 @@
+changelog:
+  bad-version-format:
+    - type: feature
+      description: "This version format is invalid"

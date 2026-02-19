@@ -1,0 +1,495 @@
+name: 'Sync Checker'
+description: 'Validates repository compliance with centralized build system requirements'
+author: 'Keyfactor'
+
+inputs:
+  check-build-config:
+    description: 'Whether to check for .keyfactor-build.yml configuration'
+    required: false
+    default: 'true'
+    
+  check-integration-manifest:
+    description: 'Whether to check for integration-manifest.json'
+    required: false
+    default: 'true'
+    
+  check-changelog:
+    description: 'Whether to check for changelog.yml'
+    required: false
+    default: 'true'
+    
+  check-workflows:
+    description: 'Whether to check GitHub Actions workflows for build system usage'
+    required: false
+    default: 'true'
+    
+  required-actions:
+    description: 'JSON array of required composite actions that should be used'
+    required: false
+    default: '["Keyfactor/github-meta/.github/actions/validate-manifest"]'
+    
+  build-system-version:
+    description: 'Expected build system version (git ref/tag)'
+    required: false
+    default: 'main'
+    
+  enforce-compliance:
+    description: 'Whether to fail the check if compliance issues are found'
+    required: false
+    default: 'false'
+    
+  generate-fixes:
+    description: 'Whether to generate suggested fixes for compliance issues'
+    required: false
+    default: 'true'
+    
+  fix-output-file:
+    description: 'File to write suggested fixes to'
+    required: false
+    default: 'compliance-fixes.md'
+    
+  working-directory:
+    description: 'Working directory for compliance checking'
+    required: false
+    default: '.'
+
+outputs:
+  compliance-status:
+    description: 'Overall compliance status (compliant, partial, non-compliant)'
+    value: ${{ steps.check.outputs.compliance-status }}
+    
+  issues-found:
+    description: 'Number of compliance issues found'
+    value: ${{ steps.check.outputs.issues-found }}
+    
+  issues-list:
+    description: 'List of compliance issues'
+    value: ${{ steps.check.outputs.issues-list }}
+    
+  fixes-generated:
+    description: 'Whether fixes were generated'
+    value: ${{ steps.fixes.outputs.fixes-generated }}
+    
+  build-system-usage:
+    description: 'Detected build system usage level'
+    value: ${{ steps.check.outputs.build-system-usage }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Initialize compliance check
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        echo "🔍 Starting build system compliance check..."
+        echo ""
+        echo "Repository: ${{ github.repository }}"
+        echo "Checking compliance with Keyfactor build system requirements"
+        echo ""
+        
+        # Create working files
+        > compliance-issues.txt
+        > compliance-report.md
+        
+    - name: Check build configuration files
+      id: config-check
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        CHECK_BUILD_CONFIG: ${{ inputs.check-build-config }}
+        CHECK_INTEGRATION_MANIFEST: ${{ inputs.check-integration-manifest }}
+        CHECK_CHANGELOG: ${{ inputs.check-changelog }}
+      run: |
+        echo "📋 Checking configuration files..."
+        
+        CONFIG_SCORE=0
+        CONFIG_ISSUES=""
+        
+        # Check for .keyfactor-build.yml
+        if [ "$CHECK_BUILD_CONFIG" = "true" ]; then
+          if [ -f ".keyfactor-build.yml" ]; then
+            echo "✅ .keyfactor-build.yml found"
+            CONFIG_SCORE=$((CONFIG_SCORE + 1))
+            
+            # Validate build config structure
+            if command -v yq >/dev/null 2>&1; then
+              LANGUAGE=$(yq eval '.build.language // ""' .keyfactor-build.yml 2>/dev/null)
+              if [ -n "$LANGUAGE" ] && [ "$LANGUAGE" != "null" ]; then
+                echo "✅ Language specified: $LANGUAGE"
+                CONFIG_SCORE=$((CONFIG_SCORE + 1))
+              else
+                echo "❌ Language not specified in .keyfactor-build.yml"
+                CONFIG_ISSUES="$CONFIG_ISSUES missing-language"
+                echo "missing-language: .keyfactor-build.yml exists but build.language is not specified" >> compliance-issues.txt
+              fi
+            fi
+          else
+            echo "❌ .keyfactor-build.yml missing"
+            CONFIG_ISSUES="$CONFIG_ISSUES missing-build-config"
+            echo "missing-build-config: .keyfactor-build.yml file is required for build system integration" >> compliance-issues.txt
+          fi
+        fi
+        
+        # Check for integration-manifest.json
+        if [ "$CHECK_INTEGRATION_MANIFEST" = "true" ]; then
+          if [ -f "integration-manifest.json" ]; then
+            echo "✅ integration-manifest.json found"
+            CONFIG_SCORE=$((CONFIG_SCORE + 1))
+          else
+            echo "❌ integration-manifest.json missing"
+            CONFIG_ISSUES="$CONFIG_ISSUES missing-integration-manifest"
+            echo "missing-integration-manifest: integration-manifest.json file is required" >> compliance-issues.txt
+          fi
+        fi
+        
+        # Check for changelog.yml
+        if [ "$CHECK_CHANGELOG" = "true" ]; then
+          if [ -f "changelog.yml" ]; then
+            echo "✅ changelog.yml found"
+            CONFIG_SCORE=$((CONFIG_SCORE + 1))
+          else
+            echo "❌ changelog.yml missing"
+            CONFIG_ISSUES="$CONFIG_ISSUES missing-changelog"
+            echo "missing-changelog: changelog.yml file is required for release management" >> compliance-issues.txt
+          fi
+        fi
+        
+        echo "config-score=$CONFIG_SCORE" >> $GITHUB_OUTPUT
+        echo "config-issues=$CONFIG_ISSUES" >> $GITHUB_OUTPUT
+        
+    - name: Check GitHub Actions workflows
+      id: workflow-check
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      if: inputs.check-workflows == 'true'
+      env:
+        REQUIRED_ACTIONS: ${{ inputs.required-actions }}
+        BUILD_SYSTEM_VERSION: ${{ inputs.build-system-version }}
+      run: |
+        echo "🔧 Checking GitHub Actions workflows..."
+        
+        WORKFLOW_SCORE=0
+        WORKFLOW_ISSUES=""
+        
+        if [ ! -d ".github/workflows" ]; then
+          echo "❌ No .github/workflows directory found"
+          WORKFLOW_ISSUES="$WORKFLOW_ISSUES no-workflows"
+          echo "no-workflows: No GitHub Actions workflows found" >> compliance-issues.txt
+        else
+          WORKFLOW_COUNT=$(find .github/workflows -name "*.yml" -o -name "*.yaml" | wc -l)
+          echo "📁 Found $WORKFLOW_COUNT workflow files"
+          
+          if [ "$WORKFLOW_COUNT" -gt 0 ]; then
+            WORKFLOW_SCORE=$((WORKFLOW_SCORE + 1))
+            
+            # Parse required actions JSON array
+            ACTIONS_LIST=$(echo "$REQUIRED_ACTIONS" | sed 's/\[//g' | sed 's/\]//g' | sed 's/"//g' | tr ',' '\n')
+            
+            BUILD_SYSTEM_USED="false"
+            OUTDATED_ACTIONS=""
+            
+            for action in $ACTIONS_LIST; do
+              action=$(echo "$action" | xargs)  # trim whitespace
+              if [ -n "$action" ]; then
+                echo "Checking for action: $action"
+                
+                # Look for action usage in workflows
+                if find .github/workflows -name "*.yml" -o -name "*.yaml" | xargs grep -l "$action" >/dev/null 2>&1; then
+                  echo "✅ Found usage of $action"
+                  BUILD_SYSTEM_USED="true"
+                  WORKFLOW_SCORE=$((WORKFLOW_SCORE + 1))
+                  
+                  # Check if using correct version
+                  if ! find .github/workflows -name "*.yml" -o -name "*.yaml" | xargs grep "$action@$BUILD_SYSTEM_VERSION" >/dev/null 2>&1; then
+                    echo "⚠️ $action may be using outdated version (not @$BUILD_SYSTEM_VERSION)"
+                    OUTDATED_ACTIONS="$OUTDATED_ACTIONS $action"
+                  fi
+                else
+                  echo "❌ Required action not found: $action"
+                  WORKFLOW_ISSUES="$WORKFLOW_ISSUES missing-action-$action"
+                  echo "missing-action: Required action $action not found in workflows" >> compliance-issues.txt
+                fi
+              fi
+            done
+            
+            if [ -n "$OUTDATED_ACTIONS" ]; then
+              WORKFLOW_ISSUES="$WORKFLOW_ISSUES outdated-actions"
+              echo "outdated-actions: Some actions may be using outdated versions:$OUTDATED_ACTIONS" >> compliance-issues.txt
+            fi
+            
+            if [ "$BUILD_SYSTEM_USED" = "false" ]; then
+              echo "❌ No build system actions detected in workflows"
+              WORKFLOW_ISSUES="$WORKFLOW_ISSUES no-build-system"
+              echo "no-build-system: Workflows do not use centralized build system" >> compliance-issues.txt
+            fi
+          fi
+        fi
+        
+        echo "workflow-score=$WORKFLOW_SCORE" >> $GITHUB_OUTPUT
+        echo "workflow-issues=$WORKFLOW_ISSUES" >> $GITHUB_OUTPUT
+        
+    - name: Calculate compliance status
+      id: check
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        CONFIG_SCORE: ${{ steps.config-check.outputs.config-score }}
+        WORKFLOW_SCORE: ${{ steps.workflow-check.outputs.workflow-score }}
+        CONFIG_ISSUES: ${{ steps.config-check.outputs.config-issues }}
+        WORKFLOW_ISSUES: ${{ steps.workflow-check.outputs.workflow-issues }}
+      run: |
+        echo "📊 Calculating overall compliance status..."
+        
+        # Count total issues
+        TOTAL_ISSUES=$(wc -l < compliance-issues.txt | tr -d ' ')
+        
+        # Determine compliance status
+        COMPLIANCE_STATUS="non-compliant"
+        BUILD_SYSTEM_USAGE="none"
+        
+        if [ "$TOTAL_ISSUES" -eq 0 ]; then
+          COMPLIANCE_STATUS="compliant"
+          BUILD_SYSTEM_USAGE="full"
+        elif [ "$CONFIG_SCORE" -gt 0 ] || [ "$WORKFLOW_SCORE" -gt 0 ]; then
+          COMPLIANCE_STATUS="partial"
+          if [ "$CONFIG_SCORE" -gt 2 ]; then
+            BUILD_SYSTEM_USAGE="configured"
+          else
+            BUILD_SYSTEM_USAGE="partial"
+          fi
+        fi
+        
+        echo "Compliance Summary:"
+        echo "  - Status: $COMPLIANCE_STATUS"
+        echo "  - Issues: $TOTAL_ISSUES"
+        echo "  - Build System Usage: $BUILD_SYSTEM_USAGE"
+        echo "  - Config Score: $CONFIG_SCORE"
+        echo "  - Workflow Score: $WORKFLOW_SCORE"
+        
+        # Create issues list
+        ISSUES_LIST=""
+        if [ -f compliance-issues.txt ] && [ -s compliance-issues.txt ]; then
+          ISSUES_LIST=$(cat compliance-issues.txt | tr '\n' ';')
+        fi
+        
+        echo "compliance-status=$COMPLIANCE_STATUS" >> $GITHUB_OUTPUT
+        echo "issues-found=$TOTAL_ISSUES" >> $GITHUB_OUTPUT
+        echo "issues-list=$ISSUES_LIST" >> $GITHUB_OUTPUT
+        echo "build-system-usage=$BUILD_SYSTEM_USAGE" >> $GITHUB_OUTPUT
+        
+    - name: Generate compliance fixes
+      id: fixes
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      if: inputs.generate-fixes == 'true'
+      env:
+        COMPLIANCE_STATUS: ${{ steps.check.outputs.compliance-status }}
+        ISSUES_FOUND: ${{ steps.check.outputs.issues-found }}
+        FIX_OUTPUT_FILE: ${{ inputs.fix-output-file }}
+        BUILD_SYSTEM_VERSION: ${{ inputs.build-system-version }}
+      run: |
+        echo "🔧 Generating compliance fixes..."
+        
+        FIXES_GENERATED="false"
+        
+        if [ "$ISSUES_FOUND" -gt 0 ]; then
+          cat > "$FIX_OUTPUT_FILE" << 'EOF'
+# Build System Compliance Fixes
+
+This repository has compliance issues with the Keyfactor build system. Here are suggested fixes:
+
+## Issues Found
+
+EOF
+          
+          # Add each issue with suggested fix
+          if [ -f compliance-issues.txt ]; then
+            while IFS=: read -r issue_type issue_desc; do
+              if [ -n "$issue_type" ]; then
+                echo "### $issue_type" >> "$FIX_OUTPUT_FILE"
+                echo "" >> "$FIX_OUTPUT_FILE"
+                echo "**Issue:** $issue_desc" >> "$FIX_OUTPUT_FILE"
+                echo "" >> "$FIX_OUTPUT_FILE"
+                
+                case "$issue_type" in
+                  "missing-build-config")
+                    cat >> "$FIX_OUTPUT_FILE" << 'BUILDFIX'
+**Fix:** Create `.keyfactor-build.yml` in the repository root:
+
+```yaml
+build:
+  language: dotnet  # Change to your project language
+  solution: "YourProject.sln"  # Optional: specify solution file
+  target_frameworks: ["net6.0", "net8.0"]  # Optional: override default frameworks
+
+release:
+  changelog_required: true
+  auto_release: true
+
+signing:
+  enabled: true
+```
+
+BUILDFIX
+                    ;;
+                    
+                  "missing-language")
+                    cat >> "$FIX_OUTPUT_FILE" << 'LANGFIX'
+**Fix:** Add language specification to `.keyfactor-build.yml`:
+
+```yaml
+build:
+  language: dotnet  # Supported: dotnet, golang, kubernetes, generic
+  # ... rest of your configuration
+```
+
+LANGFIX
+                    ;;
+                    
+                  "missing-integration-manifest")
+                    cat >> "$FIX_OUTPUT_FILE" << 'MANIFESTFIX'
+**Fix:** Create `integration-manifest.json` using the integration manifest schema.
+Refer to the schema in `Keyfactor/github-meta/integration-manifest-schema.json`.
+
+MANIFESTFIX
+                    ;;
+                    
+                  "missing-changelog")
+                    cat >> "$FIX_OUTPUT_FILE" << 'CHANGELOGFIX'
+**Fix:** Create `changelog.yml` in the repository root:
+
+```yaml
+changelog:
+  v1.0.0:
+    - type: summary
+      description: "Initial release"
+    - type: feature
+      description: "Basic functionality implemented"
+```
+
+CHANGELOGFIX
+                    ;;
+                    
+                  "no-workflows"|"no-build-system")
+                    cat >> "$FIX_OUTPUT_FILE" << WORKFLOWFIX
+**Fix:** Create GitHub Actions workflow that uses the build system:
+
+\`\`.github/workflows/build.yml\`:
+
+\`\`\`yaml
+name: Build and Release
+
+on:
+  push:
+    branches: [ main, release-* ]
+  pull_request:
+    branches: [ main, release-* ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Validate Configuration
+        uses: Keyfactor/github-meta/.github/actions/validate-manifest@$BUILD_SYSTEM_VERSION
+        
+      - name: Build Project  
+        uses: Keyfactor/github-meta/.github/actions/build-dotnet@$BUILD_SYSTEM_VERSION
+        # Use build-golang, build-kubernetes, or build-generic as appropriate
+\`\`\`
+
+WORKFLOWFIX
+                    ;;
+                esac
+                
+                echo "" >> "$FIX_OUTPUT_FILE"
+              fi
+            done < compliance-issues.txt
+          fi
+          
+          cat >> "$FIX_OUTPUT_FILE" << 'FOOTER'
+
+## Next Steps
+
+1. Apply the suggested fixes above
+2. Commit and push your changes
+3. Run the compliance check again to verify fixes
+4. Contact the build system team if you need assistance
+
+## Resources
+
+- [Build System Documentation](https://github.com/Keyfactor/github-meta/blob/main/docs/build-system-guide.md)
+- [Integration Manifest Schema](https://github.com/Keyfactor/github-meta/blob/main/integration-manifest-schema.json)
+- [Build Configuration Examples](https://github.com/Keyfactor/github-meta/tree/main/templates)
+
+FOOTER
+          
+          FIXES_GENERATED="true"
+          echo "✅ Generated fixes in $FIX_OUTPUT_FILE"
+        else
+          echo "ℹ️ No issues found, no fixes needed"
+        fi
+        
+        echo "fixes-generated=$FIXES_GENERATED" >> $GITHUB_OUTPUT
+        
+    - name: Generate compliance report
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        COMPLIANCE_STATUS: ${{ steps.check.outputs.compliance-status }}
+        ISSUES_FOUND: ${{ steps.check.outputs.issues-found }}
+        BUILD_SYSTEM_USAGE: ${{ steps.check.outputs.build-system-usage }}
+        FIXES_GENERATED: ${{ steps.fixes.outputs.fixes-generated }}
+        FIX_OUTPUT_FILE: ${{ inputs.fix-output-file }}
+      run: |
+        echo "## Build System Compliance Report" >> $GITHUB_STEP_SUMMARY
+        
+        case "$COMPLIANCE_STATUS" in
+          "compliant")
+            echo "- **Status**: ✅ **Fully Compliant**" >> $GITHUB_STEP_SUMMARY
+            ;;
+          "partial")
+            echo "- **Status**: ⚠️ **Partially Compliant**" >> $GITHUB_STEP_SUMMARY
+            ;;
+          "non-compliant")
+            echo "- **Status**: ❌ **Non-Compliant**" >> $GITHUB_STEP_SUMMARY
+            ;;
+        esac
+        
+        echo "- **Issues Found**: $ISSUES_FOUND" >> $GITHUB_STEP_SUMMARY
+        echo "- **Build System Usage**: $BUILD_SYSTEM_USAGE" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "$ISSUES_FOUND" -gt 0 ]; then
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Issues Detected" >> $GITHUB_STEP_SUMMARY
+          if [ -f compliance-issues.txt ]; then
+            while IFS=: read -r issue_type issue_desc; do
+              echo "- **$issue_type**: $issue_desc" >> $GITHUB_STEP_SUMMARY
+            done < compliance-issues.txt
+          fi
+          
+          if [ "$FIXES_GENERATED" = "true" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "📋 **Suggested fixes have been generated in \`$FIX_OUTPUT_FILE\`**" >> $GITHUB_STEP_SUMMARY
+          fi
+        else
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "🎉 **This repository is fully compliant with the build system!**" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+    - name: Enforce compliance
+      shell: bash
+      if: inputs.enforce-compliance == 'true'
+      env:
+        COMPLIANCE_STATUS: ${{ steps.check.outputs.compliance-status }}
+        ISSUES_FOUND: ${{ steps.check.outputs.issues-found }}
+      run: |
+        if [ "$COMPLIANCE_STATUS" != "compliant" ]; then
+          echo "❌ Repository compliance check failed"
+          echo "Found $ISSUES_FOUND compliance issues"
+          echo "Enforcement is enabled - failing the check"
+          exit 1
+        else
+          echo "✅ Repository passes compliance requirements"
+        fi

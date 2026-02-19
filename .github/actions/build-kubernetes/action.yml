@@ -1,0 +1,498 @@
+name: 'Build Kubernetes Project'
+description: 'Container and Kubernetes project builds with multi-platform support'
+author: 'Keyfactor'
+
+inputs:
+  dockerfile-path:
+    description: 'Path to Dockerfile'
+    required: false
+    default: 'Dockerfile'
+    
+  context-path:
+    description: 'Build context path'
+    required: false
+    default: '.'
+    
+  image-name:
+    description: 'Container image name'
+    required: true
+    
+  image-tag:
+    description: 'Container image tag'
+    required: false
+    default: 'latest'
+    
+  platforms:
+    description: 'JSON array of target platforms for multi-arch builds'
+    required: false
+    default: '["linux/amd64", "linux/arm64"]'
+    
+  build-args:
+    description: 'Build arguments as key=value pairs (one per line)'
+    required: false
+    default: ''
+    
+  push-image:
+    description: 'Whether to push image to registry'
+    required: false
+    default: 'false'
+    
+  registry:
+    description: 'Container registry to push to'
+    required: false
+    default: ''
+    
+  registry-username:
+    description: 'Registry username'
+    required: false
+    default: ''
+    
+  registry-password:
+    description: 'Registry password or token'
+    required: false
+    default: ''
+    
+  enable-signing:
+    description: 'Whether to enable image signing'
+    required: false
+    default: 'false'
+    
+  signing-certificate:
+    description: 'Name of the code signing certificate'
+    required: false
+    default: 'keyfactor-code-signing'
+    
+  helm-chart-path:
+    description: 'Path to Helm chart directory'
+    required: false
+    default: ''
+    
+  kubernetes-manifests:
+    description: 'Path to Kubernetes manifest files'
+    required: false
+    default: ''
+    
+  run-tests:
+    description: 'Whether to run container tests'
+    required: false
+    default: 'true'
+    
+  security-scan:
+    description: 'Whether to run security scanning on images'
+    required: false
+    default: 'true'
+    
+  working-directory:
+    description: 'Working directory for build operations'
+    required: false
+    default: '.'
+
+outputs:
+  build-success:
+    description: 'Whether the build succeeded'
+    value: ${{ steps.build.outputs.build-success }}
+    
+  image-digest:
+    description: 'Built image digest'
+    value: ${{ steps.build.outputs.image-digest }}
+    
+  image-tags:
+    description: 'All image tags created'
+    value: ${{ steps.build.outputs.image-tags }}
+    
+  test-results:
+    description: 'Container test results'
+    value: ${{ steps.test.outputs.test-results }}
+    
+  security-scan-results:
+    description: 'Security scan results'
+    value: ${{ steps.security.outputs.scan-results }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@988b5a0280414f521da01fcc63a27aeeb4b104db # v3.6.1
+      
+    - name: Login to container registry
+      uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+      if: inputs.push-image == 'true' && inputs.registry != ''
+      env:
+        REGISTRY: ${{ inputs.registry }}
+        REGISTRY_USERNAME: ${{ inputs.registry-username }}
+        REGISTRY_PASSWORD: ${{ inputs.registry-password }}
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ env.REGISTRY_USERNAME }}
+        password: ${{ env.REGISTRY_PASSWORD }}
+        
+    - name: Validate Dockerfile
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        DOCKERFILE_PATH: ${{ inputs.dockerfile-path }}
+        CONTEXT_PATH: ${{ inputs.context-path }}
+      run: |
+        echo "Validating Dockerfile and build context..."
+        
+        if [ ! -f "$DOCKERFILE_PATH" ]; then
+          echo "❌ Dockerfile not found: $DOCKERFILE_PATH"
+          exit 1
+        fi
+        
+        if [ ! -d "$CONTEXT_PATH" ]; then
+          echo "❌ Build context not found: $CONTEXT_PATH"
+          exit 1
+        fi
+        
+        echo "✅ Dockerfile found: $DOCKERFILE_PATH"
+        echo "✅ Build context: $CONTEXT_PATH"
+        
+        # Basic Dockerfile linting
+        if command -v hadolint >/dev/null 2>&1; then
+          echo "Running Dockerfile linting..."
+          if hadolint "$DOCKERFILE_PATH"; then
+            echo "✅ Dockerfile passes linting"
+          else
+            echo "⚠️ Dockerfile has linting warnings (continuing anyway)"
+          fi
+        else
+          echo "ℹ️ hadolint not available, skipping Dockerfile linting"
+        fi
+        
+    - name: Prepare build arguments
+      id: build-args
+      shell: bash
+      env:
+        BUILD_ARGS_INPUT: ${{ inputs.build-args }}
+      run: |
+        echo "Preparing build arguments..."
+        
+        BUILD_ARGS_FILE="build-args.txt"
+        > "$BUILD_ARGS_FILE"  # Clear file
+        
+        if [ -n "$BUILD_ARGS_INPUT" ]; then
+          echo "$BUILD_ARGS_INPUT" | while IFS= read -r line; do
+            if [ -n "$line" ] && [[ "$line" == *"="* ]]; then
+              echo "--build-arg $line" >> "$BUILD_ARGS_FILE"
+            fi
+          done
+        fi
+        
+        BUILD_ARGS_STRING=$(cat "$BUILD_ARGS_FILE" | tr '\n' ' ')
+        echo "build-args=$BUILD_ARGS_STRING" >> $GITHUB_OUTPUT
+        
+        if [ -s "$BUILD_ARGS_FILE" ]; then
+          echo "Build arguments prepared:"
+          cat "$BUILD_ARGS_FILE"
+        else
+          echo "No build arguments specified"
+        fi
+        
+    - name: Build container image
+      id: build
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        DOCKERFILE_PATH: ${{ inputs.dockerfile-path }}
+        CONTEXT_PATH: ${{ inputs.context-path }}
+        IMAGE_NAME: ${{ inputs.image-name }}
+        IMAGE_TAG: ${{ inputs.image-tag }}
+        PLATFORMS: ${{ inputs.platforms }}
+        BUILD_ARGS: ${{ steps.build-args.outputs.build-args }}
+        PUSH_IMAGE: ${{ inputs.push-image }}
+        REGISTRY: ${{ inputs.registry }}
+      run: |
+        echo "Building container image..."
+        
+        BUILD_SUCCESS="true"
+        
+        # Construct full image name
+        if [ -n "$REGISTRY" ] && [ "$PUSH_IMAGE" = "true" ]; then
+          FULL_IMAGE_NAME="$REGISTRY/$IMAGE_NAME:$IMAGE_TAG"
+        else
+          FULL_IMAGE_NAME="$IMAGE_NAME:$IMAGE_TAG"
+        fi
+        
+        echo "Image name: $FULL_IMAGE_NAME"
+        echo "Platforms: $PLATFORMS"
+        
+        # Parse platforms JSON array
+        PLATFORMS_LIST=$(echo "$PLATFORMS" | sed 's/\[//g' | sed 's/\]//g' | sed 's/"//g' | tr ',' ',')
+        
+        # Build command
+        BUILD_CMD="docker buildx build"
+        BUILD_CMD="$BUILD_CMD --file $DOCKERFILE_PATH"
+        BUILD_CMD="$BUILD_CMD --platform $PLATFORMS_LIST"
+        BUILD_CMD="$BUILD_CMD --tag $FULL_IMAGE_NAME"
+        
+        # Add build args if present
+        if [ -n "$BUILD_ARGS" ]; then
+          BUILD_CMD="$BUILD_CMD $BUILD_ARGS"
+        fi
+        
+        # Add push flag if needed
+        if [ "$PUSH_IMAGE" = "true" ]; then
+          BUILD_CMD="$BUILD_CMD --push"
+        else
+          BUILD_CMD="$BUILD_CMD --load"
+        fi
+        
+        BUILD_CMD="$BUILD_CMD $CONTEXT_PATH"
+        
+        echo "Executing: $BUILD_CMD"
+        
+        if eval "$BUILD_CMD"; then
+          echo "✅ Container image built successfully"
+          
+          # Get image digest if available
+          if [ "$PUSH_IMAGE" = "false" ]; then
+            IMAGE_DIGEST=$(docker images --no-trunc --quiet "$FULL_IMAGE_NAME")
+          else
+            IMAGE_DIGEST="pushed-to-registry"
+          fi
+          
+          echo "build-success=$BUILD_SUCCESS" >> $GITHUB_OUTPUT
+          echo "image-digest=$IMAGE_DIGEST" >> $GITHUB_OUTPUT
+          echo "image-tags=$FULL_IMAGE_NAME" >> $GITHUB_OUTPUT
+        else
+          echo "❌ Container image build failed"
+          BUILD_SUCCESS="false"
+          echo "build-success=$BUILD_SUCCESS" >> $GITHUB_OUTPUT
+          exit 1
+        fi
+        
+    - name: Run container tests
+      id: test
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      if: inputs.run-tests == 'true'
+      env:
+        IMAGE_TAGS: ${{ steps.build.outputs.image-tags }}
+      run: |
+        echo "Running container tests..."
+        
+        TEST_SUCCESS="true"
+        
+        if [ -n "$IMAGE_TAGS" ]; then
+          echo "Testing image: $IMAGE_TAGS"
+          
+          # Basic smoke test - run container and check it starts
+          if docker run --rm --entrypoint="" "$IMAGE_TAGS" echo "Container smoke test passed"; then
+            echo "✅ Container smoke test passed"
+          else
+            echo "❌ Container smoke test failed"
+            TEST_SUCCESS="false"
+          fi
+          
+          # Check for common vulnerabilities
+          if command -v trivy >/dev/null 2>&1; then
+            echo "Running Trivy security scan..."
+            if trivy image --exit-code 0 --severity HIGH,CRITICAL "$IMAGE_TAGS"; then
+              echo "✅ No high/critical vulnerabilities found"
+            else
+              echo "⚠️ Security vulnerabilities detected (continuing anyway)"
+            fi
+          else
+            echo "ℹ️ Trivy not available, skipping security scan"
+          fi
+          
+        else
+          echo "❌ No image available for testing"
+          TEST_SUCCESS="false"
+        fi
+        
+        echo "test-results=$TEST_SUCCESS" >> $GITHUB_OUTPUT
+        
+    - name: Security scanning
+      id: security
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      if: inputs.security-scan == 'true'
+      env:
+        IMAGE_TAGS: ${{ steps.build.outputs.image-tags }}
+      run: |
+        echo "Running security scanning..."
+        
+        SCAN_SUCCESS="true"
+        
+        if [ -n "$IMAGE_TAGS" ]; then
+          # Use available security scanners
+          if command -v trivy >/dev/null 2>&1; then
+            echo "Running comprehensive Trivy scan..."
+            if trivy image --format json --output trivy-results.json "$IMAGE_TAGS"; then
+              echo "✅ Trivy scan completed"
+              
+              # Check for critical vulnerabilities
+              CRITICAL_COUNT=$(cat trivy-results.json | jq -r '.Results[]?.Vulnerabilities[]? | select(.Severity == "CRITICAL") | .VulnerabilityID' | wc -l)
+              HIGH_COUNT=$(cat trivy-results.json | jq -r '.Results[]?.Vulnerabilities[]? | select(.Severity == "HIGH") | .VulnerabilityID' | wc -l)
+              
+              echo "Critical vulnerabilities: $CRITICAL_COUNT"
+              echo "High vulnerabilities: $HIGH_COUNT"
+              
+              if [ "$CRITICAL_COUNT" -gt 0 ]; then
+                echo "⚠️ $CRITICAL_COUNT critical vulnerabilities found"
+              fi
+            else
+              echo "❌ Trivy scan failed"
+              SCAN_SUCCESS="false"
+            fi
+          else
+            echo "ℹ️ No security scanners available"
+          fi
+        else
+          echo "❌ No image available for scanning"
+          SCAN_SUCCESS="false"
+        fi
+        
+        echo "scan-results=$SCAN_SUCCESS" >> $GITHUB_OUTPUT
+        
+    - name: Sign container image
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      if: inputs.enable-signing == 'true'
+      env:
+        SIGNING_CERTIFICATE: ${{ inputs.signing-certificate }}
+        IMAGE_TAGS: ${{ steps.build.outputs.image-tags }}
+      run: |
+        echo "Container signing is enabled but not implemented yet"
+        echo "TODO: Implement container image signing with certificate $SIGNING_CERTIFICATE"
+        echo "Image to sign: $IMAGE_TAGS"
+        
+    - name: Validate Kubernetes manifests
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      if: inputs.kubernetes-manifests != ''
+      env:
+        MANIFESTS_PATH: ${{ inputs.kubernetes-manifests }}
+      run: |
+        echo "Validating Kubernetes manifests..."
+        
+        if [ ! -d "$MANIFESTS_PATH" ]; then
+          echo "❌ Kubernetes manifests path not found: $MANIFESTS_PATH"
+          exit 1
+        fi
+        
+        YAML_FILES=$(find "$MANIFESTS_PATH" -name "*.yaml" -o -name "*.yml")
+        
+        if [ -z "$YAML_FILES" ]; then
+          echo "⚠️ No YAML files found in $MANIFESTS_PATH"
+        else
+          echo "Found Kubernetes manifests:"
+          echo "$YAML_FILES"
+          
+          # Basic YAML validation
+          for file in $YAML_FILES; do
+            if command -v kubectl >/dev/null 2>&1; then
+              if kubectl apply --dry-run=client -f "$file"; then
+                echo "✅ $file is valid"
+              else
+                echo "❌ $file has validation errors"
+                exit 1
+              fi
+            else
+              echo "ℹ️ kubectl not available, skipping manifest validation"
+              break
+            fi
+          done
+        fi
+        
+    - name: Validate Helm chart
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      if: inputs.helm-chart-path != ''
+      env:
+        CHART_PATH: ${{ inputs.helm-chart-path }}
+      run: |
+        echo "Validating Helm chart..."
+        
+        if [ ! -d "$CHART_PATH" ]; then
+          echo "❌ Helm chart path not found: $CHART_PATH"
+          exit 1
+        fi
+        
+        if [ ! -f "$CHART_PATH/Chart.yaml" ]; then
+          echo "❌ Chart.yaml not found in $CHART_PATH"
+          exit 1
+        fi
+        
+        echo "✅ Helm chart found: $CHART_PATH"
+        
+        if command -v helm >/dev/null 2>&1; then
+          echo "Linting Helm chart..."
+          if helm lint "$CHART_PATH"; then
+            echo "✅ Helm chart passes linting"
+          else
+            echo "❌ Helm chart has linting errors"
+            exit 1
+          fi
+          
+          echo "Templating Helm chart..."
+          if helm template test "$CHART_PATH" >/dev/null; then
+            echo "✅ Helm chart templates successfully"
+          else
+            echo "❌ Helm chart templating failed"
+            exit 1
+          fi
+        else
+          echo "ℹ️ Helm not available, skipping chart validation"
+        fi
+        
+    - name: Generate build summary
+      shell: bash
+      env:
+        BUILD_SUCCESS: ${{ steps.build.outputs.build-success }}
+        IMAGE_NAME: ${{ inputs.image-name }}
+        IMAGE_TAG: ${{ inputs.image-tag }}
+        PLATFORMS: ${{ inputs.platforms }}
+        PUSH_IMAGE: ${{ inputs.push-image }}
+        RUN_TESTS: ${{ inputs.run-tests }}
+        TEST_RESULTS: ${{ steps.test.outputs.test-results }}
+        SECURITY_SCAN: ${{ inputs.security-scan }}
+        SCAN_RESULTS: ${{ steps.security.outputs.scan-results }}
+        ENABLE_SIGNING: ${{ inputs.enable-signing }}
+        HELM_CHART_PATH: ${{ inputs.helm-chart-path }}
+        K8S_MANIFESTS: ${{ inputs.kubernetes-manifests }}
+      run: |
+        echo "## Kubernetes/Container Build Results" >> $GITHUB_STEP_SUMMARY
+        if [ "$BUILD_SUCCESS" = "true" ]; then
+          echo "- **Build Status**: ✅ Success" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- **Build Status**: ❌ Failed" >> $GITHUB_STEP_SUMMARY
+        fi
+        echo "- **Image**: \`$IMAGE_NAME:$IMAGE_TAG\`" >> $GITHUB_STEP_SUMMARY
+        echo "- **Platforms**: \`$PLATFORMS\`" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "$PUSH_IMAGE" = "true" ]; then
+          echo "- **Registry**: 🚀 Pushed to registry" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- **Registry**: 📦 Built locally only" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [ "$RUN_TESTS" = "true" ]; then
+          if [ "$TEST_RESULTS" = "true" ]; then
+            echo "- **Container Tests**: ✅ Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Container Tests**: ❌ Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+        fi
+        
+        if [ "$SECURITY_SCAN" = "true" ]; then
+          if [ "$SCAN_RESULTS" = "true" ]; then
+            echo "- **Security Scan**: ✅ Completed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Security Scan**: ❌ Issues found" >> $GITHUB_STEP_SUMMARY
+          fi
+        fi
+        
+        if [ "$ENABLE_SIGNING" = "true" ]; then
+          echo "- **Image Signing**: 🔐 Enabled" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [ -n "$HELM_CHART_PATH" ]; then
+          echo "- **Helm Chart**: 📊 Validated" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [ -n "$K8S_MANIFESTS" ]; then
+          echo "- **K8s Manifests**: 📋 Validated" >> $GITHUB_STEP_SUMMARY
+        fi

@@ -1,0 +1,17 @@
+build:
+  language: dotnet
+  solution: "cagateway-template.sln"
+  target_frameworks: ["netframework4.8"]  # .NET Framework 4.8 (compatible with 4.7.2)
+  configuration: Release
+  output_path: "cagateway-template/bin/Release"
+  
+test:
+  run_tests: false  # No test projects in this template
+  
+release:
+  changelog_required: true
+  auto_release: true
+  
+signing:
+  enabled: true
+  certificate: "keyfactor-code-signing"

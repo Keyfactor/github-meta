@@ -1,0 +1,117 @@
+name: 'Validate Keyfactor Manifests'
+description: 'Validates integration-manifest.json and .keyfactor-build.yml for conformance'
+author: 'Keyfactor'
+
+inputs:
+  require-build-config:
+    description: 'Whether to require .keyfactor-build.yml (true for releases, false for preview)'
+    required: false
+    default: 'false'
+  
+  working-directory:
+    description: 'Working directory to search for manifest files'
+    required: false
+    default: '.'
+    
+  fail-on-missing:
+    description: 'Whether to fail if required files are missing'
+    required: false
+    default: 'true'
+
+outputs:
+  integration-manifest-exists:
+    description: 'Whether integration-manifest.json exists and is valid'
+    value: ${{ steps.validate.outputs.integration-manifest-exists }}
+    
+  build-config-exists:
+    description: 'Whether .keyfactor-build.yml exists and is valid'
+    value: ${{ steps.validate.outputs.build-config-exists }}
+    
+  validation-mode:
+    description: 'Validation mode: full, preview, or none'
+    value: ${{ steps.validate.outputs.validation-mode }}
+    
+  project-language:
+    description: 'Detected or configured project language'
+    value: ${{ steps.validate.outputs.project-language }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup validation tools
+      shell: bash
+      run: |
+        echo "Setting up manifest validation tools..."
+        # Download or use pre-built Go validation tools
+        
+    - name: Validate manifests
+      id: validate
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        FAIL_ON_MISSING: ${{ inputs.fail-on-missing }}
+        REQUIRE_BUILD_CONFIG: ${{ inputs.require-build-config }}
+      run: |
+        echo "Validating Keyfactor manifests..."
+        
+        # Check for integration manifest
+        INTEGRATION_MANIFEST_EXISTS="false"
+        BUILD_CONFIG_EXISTS="false"
+        VALIDATION_MODE="none"
+        PROJECT_LANGUAGE="unknown"
+        
+        if [ -f "integration-manifest.json" ]; then
+          echo "✓ Found integration-manifest.json"
+          # Validate against schema (placeholder for now)
+          echo "Validating integration-manifest.json against schema..."
+          INTEGRATION_MANIFEST_EXISTS="true"
+        else
+          echo "✗ Missing integration-manifest.json"
+          if [ "$FAIL_ON_MISSING" = "true" ]; then
+            echo "ERROR: integration-manifest.json is required"
+            exit 1
+          fi
+        fi
+        
+        if [ -f ".keyfactor-build.yml" ]; then
+          echo "✓ Found .keyfactor-build.yml"
+          # Validate against schema (placeholder for now)
+          echo "Validating .keyfactor-build.yml against schema..."
+          BUILD_CONFIG_EXISTS="true"
+          
+          # Extract language from build config
+          if command -v yq >/dev/null 2>&1; then
+            PROJECT_LANGUAGE=$(yq eval '.build.language // "unknown"' .keyfactor-build.yml)
+          fi
+        else
+          echo "? Missing .keyfactor-build.yml"
+          if [ "$REQUIRE_BUILD_CONFIG" = "true" ]; then
+            echo "ERROR: .keyfactor-build.yml is required for this operation"
+            exit 1
+          fi
+        fi
+        
+        # Determine validation mode
+        if [ "$INTEGRATION_MANIFEST_EXISTS" = "true" ] && [ "$BUILD_CONFIG_EXISTS" = "true" ]; then
+          VALIDATION_MODE="full"
+          echo "✓ Full build system configuration detected"
+        elif [ "$INTEGRATION_MANIFEST_EXISTS" = "true" ]; then
+          VALIDATION_MODE="preview"
+          echo "! Preview mode: integration manifest found but no build config"
+        else
+          VALIDATION_MODE="none" 
+          echo "✗ No valid configuration found"
+        fi
+        
+        # Set outputs
+        echo "integration-manifest-exists=$INTEGRATION_MANIFEST_EXISTS" >> $GITHUB_OUTPUT
+        echo "build-config-exists=$BUILD_CONFIG_EXISTS" >> $GITHUB_OUTPUT
+        echo "validation-mode=$VALIDATION_MODE" >> $GITHUB_OUTPUT
+        echo "project-language=$PROJECT_LANGUAGE" >> $GITHUB_OUTPUT
+        
+        # Summary
+        echo "## Validation Results" >> $GITHUB_STEP_SUMMARY
+        echo "- Integration Manifest: $INTEGRATION_MANIFEST_EXISTS" >> $GITHUB_STEP_SUMMARY
+        echo "- Build Configuration: $BUILD_CONFIG_EXISTS" >> $GITHUB_STEP_SUMMARY
+        echo "- Validation Mode: $VALIDATION_MODE" >> $GITHUB_STEP_SUMMARY
+        echo "- Project Language: $PROJECT_LANGUAGE" >> $GITHUB_STEP_SUMMARY

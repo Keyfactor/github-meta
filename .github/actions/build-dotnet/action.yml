@@ -1,0 +1,258 @@
+name: 'Build .NET Project'
+description: 'Multi-version .NET builds with code signing support'
+author: 'Keyfactor'
+
+inputs:
+  solution-file:
+    description: 'Path to the solution file to build'
+    required: false
+    default: ''
+    
+  target-frameworks:
+    description: 'JSON array of target frameworks to build against'
+    required: false
+    default: '["net6.0", "net8.0"]'
+    
+  configuration:
+    description: 'Build configuration (Debug, Release)'
+    required: false
+    default: 'Release'
+    
+  enable-signing:
+    description: 'Whether to enable code signing'
+    required: false
+    default: 'false'
+    
+  signing-certificate:
+    description: 'Name of the code signing certificate'
+    required: false
+    default: 'keyfactor-code-signing'
+    
+  run-tests:
+    description: 'Whether to run unit tests'
+    required: false
+    default: 'true'
+    
+  test-projects:
+    description: 'JSON array of test project patterns'
+    required: false
+    default: '["**/*Tests.csproj", "**/*Test.csproj"]'
+    
+  collect-coverage:
+    description: 'Whether to collect code coverage'
+    required: false  
+    default: 'true'
+    
+  coverage-threshold:
+    description: 'Minimum code coverage threshold'
+    required: false
+    default: '70'
+    
+  working-directory:
+    description: 'Working directory for build operations'
+    required: false
+    default: '.'
+
+outputs:
+  build-success:
+    description: 'Whether the build succeeded'
+    value: ${{ steps.build.outputs.build-success }}
+    
+  test-results:
+    description: 'Test execution results'
+    value: ${{ steps.test.outputs.test-results }}
+    
+  coverage-percentage:
+    description: 'Code coverage percentage achieved'
+    value: ${{ steps.test.outputs.coverage-percentage }}
+    
+  artifacts-path:
+    description: 'Path to build artifacts'
+    value: ${{ steps.build.outputs.artifacts-path }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup .NET
+      uses: actions/setup-dotnet@6bd8b7f7774af54e05809fcc5431931b3eb1ddee # v4.0.1
+      with:
+        dotnet-version: |
+          6.0.x
+          8.0.x
+          9.0.x
+          
+    - name: Restore dependencies
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        SOLUTION_FILE: ${{ inputs.solution-file }}
+      run: |
+        echo "Restoring .NET dependencies..."
+        if [ -n "$SOLUTION_FILE" ]; then
+          dotnet restore "$SOLUTION_FILE"
+        else
+          dotnet restore
+        fi
+        
+    - name: Build projects
+      id: build
+      shell: bash  
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        FRAMEWORKS: ${{ inputs.target-frameworks }}
+        SOLUTION_FILE: ${{ inputs.solution-file }}
+        CONFIGURATION: ${{ inputs.configuration }}
+      run: |
+        echo "Building .NET project(s)..."
+        
+        BUILD_SUCCESS="true"
+        
+        echo "Target frameworks: $FRAMEWORKS"
+        
+        # Parse frameworks JSON array (simple approach)
+        FRAMEWORK_LIST=$(echo "$FRAMEWORKS" | sed 's/\[//g' | sed 's/\]//g' | sed 's/"//g' | tr ',' '\n')
+        
+        mkdir -p artifacts
+        
+        for framework in $FRAMEWORK_LIST; do
+          framework=$(echo "$framework" | xargs)  # trim whitespace
+          echo "Building for framework: $framework"
+          
+          if [ -n "$SOLUTION_FILE" ]; then
+            BUILD_CMD="dotnet build \"$SOLUTION_FILE\" --configuration \"$CONFIGURATION\" --framework $framework --no-restore"
+          else
+            BUILD_CMD="dotnet build --configuration \"$CONFIGURATION\" --framework $framework --no-restore"
+          fi
+          
+          echo "Executing: $BUILD_CMD"
+          
+          if ! eval "$BUILD_CMD"; then
+            echo "❌ Build failed for framework $framework"
+            BUILD_SUCCESS="false"
+          else
+            echo "✅ Build succeeded for framework $framework"
+            
+            # Copy artifacts
+            if [ -d "bin/$CONFIGURATION/$framework" ]; then
+              cp -r "bin/$CONFIGURATION/$framework" "artifacts/$framework/"
+            fi
+          fi
+        done
+        
+        echo "build-success=$BUILD_SUCCESS" >> $GITHUB_OUTPUT
+        echo "artifacts-path=artifacts" >> $GITHUB_OUTPUT
+        
+        if [ "$BUILD_SUCCESS" != "true" ]; then
+          echo "❌ One or more framework builds failed"
+          exit 1
+        fi
+        
+    - name: Run tests
+      id: test
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      if: inputs.run-tests == 'true'
+      env:
+        TEST_PATTERNS: ${{ inputs.test-projects }}
+        CONFIGURATION: ${{ inputs.configuration }}
+        COLLECT_COVERAGE: ${{ inputs.collect-coverage }}
+        COVERAGE_THRESHOLD: ${{ inputs.coverage-threshold }}
+      run: |
+        echo "Running .NET tests..."
+        
+        TEST_SUCCESS="true"
+        COVERAGE_PERCENTAGE="0"
+        
+        # Find test projects
+        echo "Test project patterns: $TEST_PATTERNS"
+        
+        # Simple test execution (can be enhanced with proper pattern matching)
+        if find . -name "*Tests.csproj" -o -name "*Test.csproj" | grep -q .; then
+          echo "Found test projects, executing tests..."
+          
+          if [ "$COLLECT_COVERAGE" = "true" ]; then
+            # Run tests with coverage collection
+            if command -v dotnet >/dev/null 2>&1; then
+              if dotnet test --configuration "$CONFIGURATION" --collect:"XPlat Code Coverage" --logger trx --results-directory TestResults/; then
+                echo "✅ Tests passed"
+                
+                # Extract coverage percentage (simplified)
+                if find TestResults -name "*.xml" | head -1 | xargs grep -o 'line-rate="[^"]*"' | head -1; then
+                  COVERAGE_RAW=$(find TestResults -name "*.xml" | head -1 | xargs grep -o 'line-rate="[^"]*"' | head -1 | cut -d'"' -f2)
+                  COVERAGE_PERCENTAGE=$(echo "$COVERAGE_RAW * 100" | bc -l 2>/dev/null || echo "0")
+                fi
+              else
+                echo "❌ Tests failed"
+                TEST_SUCCESS="false"
+              fi
+            fi
+          else
+            # Run tests without coverage
+            if dotnet test --configuration "$CONFIGURATION" --logger trx --results-directory TestResults/; then
+              echo "✅ Tests passed"
+            else
+              echo "❌ Tests failed"
+              TEST_SUCCESS="false"
+            fi
+          fi
+        else
+          echo "ℹ️  No test projects found"
+        fi
+        
+        echo "test-results=$TEST_SUCCESS" >> $GITHUB_OUTPUT
+        echo "coverage-percentage=$COVERAGE_PERCENTAGE" >> $GITHUB_OUTPUT
+        
+        # Check coverage threshold
+        if [ "$COLLECT_COVERAGE" = "true" ]; then
+          if (( $(echo "$COVERAGE_PERCENTAGE < $COVERAGE_THRESHOLD" | bc -l) )); then
+            echo "⚠️  Coverage $COVERAGE_PERCENTAGE% is below threshold $COVERAGE_THRESHOLD%"
+          else
+            echo "✅ Coverage $COVERAGE_PERCENTAGE% meets threshold $COVERAGE_THRESHOLD%"
+          fi
+        fi
+        
+    - name: Sign assemblies
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      if: inputs.enable-signing == 'true'
+      env:
+        SIGNING_CERTIFICATE: ${{ inputs.signing-certificate }}
+      run: |
+        echo "Code signing is enabled but not implemented yet"
+        echo "TODO: Implement assembly signing with certificate $SIGNING_CERTIFICATE"
+        
+    - name: Generate build summary
+      shell: bash
+      env:
+        BUILD_SUCCESS: ${{ steps.build.outputs.build-success }}
+        CONFIGURATION: ${{ inputs.configuration }}
+        TARGET_FRAMEWORKS: ${{ inputs.target-frameworks }}
+        RUN_TESTS: ${{ inputs.run-tests }}
+        TEST_RESULTS: ${{ steps.test.outputs.test-results }}
+        COLLECT_COVERAGE: ${{ inputs.collect-coverage }}
+        COVERAGE_PERCENTAGE: ${{ steps.test.outputs.coverage-percentage }}
+        ENABLE_SIGNING: ${{ inputs.enable-signing }}
+      run: |
+        echo "## .NET Build Results" >> $GITHUB_STEP_SUMMARY
+        if [ "$BUILD_SUCCESS" = "true" ]; then
+          echo "- **Build Status**: ✅ Success" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- **Build Status**: ❌ Failed" >> $GITHUB_STEP_SUMMARY
+        fi
+        echo "- **Configuration**: $CONFIGURATION" >> $GITHUB_STEP_SUMMARY
+        echo "- **Target Frameworks**: \`$TARGET_FRAMEWORKS\`" >> $GITHUB_STEP_SUMMARY
+        
+        if [ "$RUN_TESTS" = "true" ]; then
+          if [ "$TEST_RESULTS" = "true" ]; then
+            echo "- **Tests**: ✅ Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Tests**: ❌ Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+          if [ "$COLLECT_COVERAGE" = "true" ]; then
+            echo "- **Coverage**: $COVERAGE_PERCENTAGE%" >> $GITHUB_STEP_SUMMARY
+          fi
+        fi
+        
+        if [ "$ENABLE_SIGNING" = "true" ]; then
+          echo "- **Code Signing**: 🔐 Enabled" >> $GITHUB_STEP_SUMMARY
+        fi

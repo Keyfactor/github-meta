@@ -1,0 +1,9 @@
+{
+  "name": "Test CA Plugin",
+  "description": "A test certificate authority plugin for validation",
+  "integration_type": "anyca-plugin",
+  "support_level": "kf-supported", 
+  "status": "production",
+  "link_github": true,
+  "update_catalog": true
+}

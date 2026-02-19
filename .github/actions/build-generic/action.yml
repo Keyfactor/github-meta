@@ -1,0 +1,423 @@
+name: 'Build Generic Project'
+description: 'Generic build system for projects that do not fit standard patterns'
+author: 'Keyfactor'
+
+inputs:
+  build-script:
+    description: 'Path to build script to execute'
+    required: false
+    default: ''
+    
+  build-commands:
+    description: 'Build commands to execute (one per line)'
+    required: false
+    default: ''
+    
+  test-script:
+    description: 'Path to test script to execute'
+    required: false
+    default: ''
+    
+  test-commands:
+    description: 'Test commands to execute (one per line)'
+    required: false
+    default: ''
+    
+  package-script:
+    description: 'Path to packaging script'
+    required: false
+    default: ''
+    
+  package-commands:
+    description: 'Packaging commands to execute (one per line)'
+    required: false
+    default: ''
+    
+  artifacts-path:
+    description: 'Path where build artifacts are created'
+    required: false
+    default: 'dist'
+    
+  run-tests:
+    description: 'Whether to run tests'
+    required: false
+    default: 'true'
+    
+  enable-signing:
+    description: 'Whether to enable artifact signing'
+    required: false
+    default: 'false'
+    
+  signing-certificate:
+    description: 'Name of the code signing certificate'
+    required: false
+    default: 'keyfactor-code-signing'
+    
+  environment-setup:
+    description: 'Environment setup commands (one per line)'
+    required: false
+    default: ''
+    
+  required-tools:
+    description: 'JSON array of required tools to check for'
+    required: false
+    default: '[]'
+    
+  build-timeout:
+    description: 'Build timeout in minutes'
+    required: false
+    default: '30'
+    
+  working-directory:
+    description: 'Working directory for build operations'
+    required: false
+    default: '.'
+    
+  shell:
+    description: 'Shell to use for command execution'
+    required: false
+    default: 'bash'
+
+outputs:
+  build-success:
+    description: 'Whether the build succeeded'
+    value: ${{ steps.build.outputs.build-success }}
+    
+  test-results:
+    description: 'Test execution results'
+    value: ${{ steps.test.outputs.test-results }}
+    
+  artifacts-created:
+    description: 'Whether artifacts were created'
+    value: ${{ steps.package.outputs.artifacts-created }}
+    
+  artifacts-path:
+    description: 'Path to created artifacts'
+    value: ${{ steps.package.outputs.artifacts-path }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Check required tools
+      shell: bash
+      env:
+        REQUIRED_TOOLS: ${{ inputs.required-tools }}
+      run: |
+        echo "Checking for required tools..."
+        
+        if [ "$REQUIRED_TOOLS" != "[]" ] && [ -n "$REQUIRED_TOOLS" ]; then
+          # Parse JSON array of required tools
+          TOOLS_LIST=$(echo "$REQUIRED_TOOLS" | sed 's/\[//g' | sed 's/\]//g' | sed 's/"//g' | tr ',' '\n')
+          
+          MISSING_TOOLS=""
+          for tool in $TOOLS_LIST; do
+            tool=$(echo "$tool" | xargs)  # trim whitespace
+            if [ -n "$tool" ]; then
+              if command -v "$tool" >/dev/null 2>&1; then
+                echo "✅ $tool is available"
+              else
+                echo "❌ $tool is missing"
+                MISSING_TOOLS="$MISSING_TOOLS $tool"
+              fi
+            fi
+          done
+          
+          if [ -n "$MISSING_TOOLS" ]; then
+            echo "Missing required tools:$MISSING_TOOLS"
+            echo "Please install them before running the build"
+            exit 1
+          fi
+        else
+          echo "ℹ️ No specific tools required"
+        fi
+        
+    - name: Environment setup
+      shell: ${{ inputs.shell }}
+      working-directory: ${{ inputs.working-directory }}
+      if: inputs.environment-setup != ''
+      env:
+        ENVIRONMENT_SETUP: ${{ inputs.environment-setup }}
+      run: |
+        echo "Setting up build environment..."
+        
+        # Execute environment setup commands line by line
+        echo "$ENVIRONMENT_SETUP" | while IFS= read -r cmd; do
+          if [ -n "$cmd" ] && [[ ! "$cmd" =~ ^[[:space:]]*# ]]; then
+            echo "Executing: $cmd"
+            if ! eval "$cmd"; then
+              echo "❌ Environment setup command failed: $cmd"
+              exit 1
+            fi
+          fi
+        done
+        
+        echo "✅ Environment setup completed"
+        
+    - name: Execute build
+      id: build
+      shell: ${{ inputs.shell }}
+      working-directory: ${{ inputs.working-directory }}
+      timeout-minutes: ${{ fromJSON(inputs.build-timeout) }}
+      env:
+        BUILD_SCRIPT: ${{ inputs.build-script }}
+        BUILD_COMMANDS: ${{ inputs.build-commands }}
+      run: |
+        echo "Starting generic build process..."
+        
+        BUILD_SUCCESS="true"
+        
+        # Execute build script if provided
+        if [ -n "$BUILD_SCRIPT" ] && [ -f "$BUILD_SCRIPT" ]; then
+          echo "Executing build script: $BUILD_SCRIPT"
+          
+          # Make script executable
+          chmod +x "$BUILD_SCRIPT"
+          
+          if "./$BUILD_SCRIPT"; then
+            echo "✅ Build script completed successfully"
+          else
+            echo "❌ Build script failed"
+            BUILD_SUCCESS="false"
+          fi
+          
+        # Execute build commands if provided
+        elif [ -n "$BUILD_COMMANDS" ]; then
+          echo "Executing build commands..."
+          
+          # Execute commands line by line
+          echo "$BUILD_COMMANDS" | while IFS= read -r cmd; do
+            if [ -n "$cmd" ] && [[ ! "$cmd" =~ ^[[:space:]]*# ]]; then
+              echo "Executing: $cmd"
+              if ! eval "$cmd"; then
+                echo "❌ Build command failed: $cmd"
+                BUILD_SUCCESS="false"
+                break
+              fi
+            fi
+          done
+          
+        else
+          echo "⚠️ No build script or commands specified"
+          echo "Generic build completed with no operations"
+        fi
+        
+        echo "build-success=$BUILD_SUCCESS" >> $GITHUB_OUTPUT
+        
+        if [ "$BUILD_SUCCESS" != "true" ]; then
+          echo "❌ Build process failed"
+          exit 1
+        fi
+        
+    - name: Run tests
+      id: test
+      shell: ${{ inputs.shell }}
+      working-directory: ${{ inputs.working-directory }}
+      if: inputs.run-tests == 'true'
+      env:
+        TEST_SCRIPT: ${{ inputs.test-script }}
+        TEST_COMMANDS: ${{ inputs.test-commands }}
+      run: |
+        echo "Running tests..."
+        
+        TEST_SUCCESS="true"
+        
+        # Execute test script if provided
+        if [ -n "$TEST_SCRIPT" ] && [ -f "$TEST_SCRIPT" ]; then
+          echo "Executing test script: $TEST_SCRIPT"
+          
+          # Make script executable
+          chmod +x "$TEST_SCRIPT"
+          
+          if "./$TEST_SCRIPT"; then
+            echo "✅ Test script completed successfully"
+          else
+            echo "❌ Test script failed"
+            TEST_SUCCESS="false"
+          fi
+          
+        # Execute test commands if provided
+        elif [ -n "$TEST_COMMANDS" ]; then
+          echo "Executing test commands..."
+          
+          # Execute commands line by line
+          echo "$TEST_COMMANDS" | while IFS= read -r cmd; do
+            if [ -n "$cmd" ] && [[ ! "$cmd" =~ ^[[:space:]]*# ]]; then
+              echo "Executing: $cmd"
+              if ! eval "$cmd"; then
+                echo "❌ Test command failed: $cmd"
+                TEST_SUCCESS="false"
+                break
+              fi
+            fi
+          done
+          
+        else
+          echo "ℹ️ No test script or commands specified, skipping tests"
+        fi
+        
+        echo "test-results=$TEST_SUCCESS" >> $GITHUB_OUTPUT
+        
+    - name: Package artifacts
+      id: package
+      shell: ${{ inputs.shell }}
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        PACKAGE_SCRIPT: ${{ inputs.package-script }}
+        PACKAGE_COMMANDS: ${{ inputs.package-commands }}
+        ARTIFACTS_PATH: ${{ inputs.artifacts-path }}
+      run: |
+        echo "Creating package artifacts..."
+        
+        ARTIFACTS_CREATED="false"
+        ACTUAL_ARTIFACTS_PATH=""
+        
+        # Execute packaging script if provided
+        if [ -n "$PACKAGE_SCRIPT" ] && [ -f "$PACKAGE_SCRIPT" ]; then
+          echo "Executing package script: $PACKAGE_SCRIPT"
+          
+          # Make script executable
+          chmod +x "$PACKAGE_SCRIPT"
+          
+          if "./$PACKAGE_SCRIPT"; then
+            echo "✅ Package script completed successfully"
+            ARTIFACTS_CREATED="true"
+          else
+            echo "❌ Package script failed"
+          fi
+          
+        # Execute packaging commands if provided
+        elif [ -n "$PACKAGE_COMMANDS" ]; then
+          echo "Executing packaging commands..."
+          
+          # Execute commands line by line
+          echo "$PACKAGE_COMMANDS" | while IFS= read -r cmd; do
+            if [ -n "$cmd" ] && [[ ! "$cmd" =~ ^[[:space:]]*# ]]; then
+              echo "Executing: $cmd"
+              if eval "$cmd"; then
+                ARTIFACTS_CREATED="true"
+              else
+                echo "❌ Package command failed: $cmd"
+              fi
+            fi
+          done
+          
+        else
+          echo "ℹ️ No packaging script or commands specified"
+          
+          # Check if artifacts directory exists and has files
+          if [ -d "$ARTIFACTS_PATH" ] && [ "$(ls -A "$ARTIFACTS_PATH" 2>/dev/null)" ]; then
+            echo "✅ Found artifacts in $ARTIFACTS_PATH"
+            ARTIFACTS_CREATED="true"
+          else
+            echo "ℹ️ No artifacts found in $ARTIFACTS_PATH"
+          fi
+        fi
+        
+        # Determine final artifacts path
+        if [ "$ARTIFACTS_CREATED" = "true" ]; then
+          if [ -d "$ARTIFACTS_PATH" ]; then
+            ACTUAL_ARTIFACTS_PATH="$ARTIFACTS_PATH"
+            echo "📦 Artifacts available in: $ACTUAL_ARTIFACTS_PATH"
+            ls -la "$ACTUAL_ARTIFACTS_PATH" || true
+          fi
+        fi
+        
+        echo "artifacts-created=$ARTIFACTS_CREATED" >> $GITHUB_OUTPUT
+        echo "artifacts-path=$ACTUAL_ARTIFACTS_PATH" >> $GITHUB_OUTPUT
+        
+    - name: Sign artifacts
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      if: inputs.enable-signing == 'true'
+      env:
+        SIGNING_CERTIFICATE: ${{ inputs.signing-certificate }}
+        ARTIFACTS_PATH: ${{ steps.package.outputs.artifacts-path }}
+        ARTIFACTS_CREATED: ${{ steps.package.outputs.artifacts-created }}
+      run: |
+        if [ "$ARTIFACTS_CREATED" = "true" ] && [ -n "$ARTIFACTS_PATH" ]; then
+          echo "Artifact signing is enabled but not implemented yet"
+          echo "TODO: Implement artifact signing with certificate $SIGNING_CERTIFICATE"
+          echo "Artifacts to sign in: $ARTIFACTS_PATH"
+        else
+          echo "ℹ️ No artifacts to sign"
+        fi
+        
+    - name: Validate artifacts
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        ARTIFACTS_PATH: ${{ steps.package.outputs.artifacts-path }}
+        ARTIFACTS_CREATED: ${{ steps.package.outputs.artifacts-created }}
+      run: |
+        if [ "$ARTIFACTS_CREATED" = "true" ] && [ -n "$ARTIFACTS_PATH" ]; then
+          echo "Validating created artifacts..."
+          
+          if [ -d "$ARTIFACTS_PATH" ]; then
+            ARTIFACT_COUNT=$(find "$ARTIFACTS_PATH" -type f | wc -l)
+            ARTIFACT_SIZE=$(du -sh "$ARTIFACTS_PATH" | cut -f1)
+            
+            echo "📊 Artifact summary:"
+            echo "   - Files: $ARTIFACT_COUNT"
+            echo "   - Total size: $ARTIFACT_SIZE"
+            echo "   - Location: $ARTIFACTS_PATH"
+            
+            # List all artifacts
+            echo ""
+            echo "📋 Artifact listing:"
+            find "$ARTIFACTS_PATH" -type f -exec ls -lh {} \;
+          else
+            echo "⚠️ Artifacts path does not exist: $ARTIFACTS_PATH"
+          fi
+        else
+          echo "ℹ️ No artifacts were created to validate"
+        fi
+        
+    - name: Generate build summary
+      shell: bash
+      env:
+        BUILD_SUCCESS: ${{ steps.build.outputs.build-success }}
+        RUN_TESTS: ${{ inputs.run-tests }}
+        TEST_RESULTS: ${{ steps.test.outputs.test-results }}
+        ARTIFACTS_CREATED: ${{ steps.package.outputs.artifacts-created }}
+        ARTIFACTS_PATH: ${{ steps.package.outputs.artifacts-path }}
+        ENABLE_SIGNING: ${{ inputs.enable-signing }}
+        BUILD_SCRIPT: ${{ inputs.build-script }}
+        BUILD_COMMANDS: ${{ inputs.build-commands }}
+        WORKING_DIR: ${{ inputs.working-directory }}
+      run: |
+        echo "## Generic Build Results" >> $GITHUB_STEP_SUMMARY
+        if [ "$BUILD_SUCCESS" = "true" ]; then
+          echo "- **Build Status**: ✅ Success" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- **Build Status**: ❌ Failed" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        echo "- **Working Directory**: \`$WORKING_DIR\`" >> $GITHUB_STEP_SUMMARY
+        
+        if [ -n "$BUILD_SCRIPT" ]; then
+          echo "- **Build Method**: Script (\`$BUILD_SCRIPT\`)" >> $GITHUB_STEP_SUMMARY
+        elif [ -n "$BUILD_COMMANDS" ]; then
+          echo "- **Build Method**: Commands" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- **Build Method**: None specified" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [ "$RUN_TESTS" = "true" ]; then
+          if [ "$TEST_RESULTS" = "true" ]; then
+            echo "- **Tests**: ✅ Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- **Tests**: ❌ Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+        else
+          echo "- **Tests**: ⏭️ Skipped" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [ "$ARTIFACTS_CREATED" = "true" ]; then
+          echo "- **Artifacts**: ✅ Created in \`$ARTIFACTS_PATH\`" >> $GITHUB_STEP_SUMMARY
+        else
+          echo "- **Artifacts**: ❌ None created" >> $GITHUB_STEP_SUMMARY
+        fi
+        
+        if [ "$ENABLE_SIGNING" = "true" ]; then
+          echo "- **Code Signing**: 🔐 Enabled" >> $GITHUB_STEP_SUMMARY
+        fi

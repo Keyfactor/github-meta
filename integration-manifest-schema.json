@@ -1,0 +1,414 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://keyfactor.github.io/v2/integration-manifest-schema.json",
+  "title": "Keyfactor Integration Manifest Schema v2",
+  "description": "The JSON Schema used by Keyfactor Integrations to store integration-related metadata",
+  "examples": [
+    {
+      "name": "Sample Integration",
+      "description": "A sample integration manifest for demonstration",
+      "integration_type": "orchestrator",
+      "support_level": "community",
+      "status": "prototype",
+      "link_github": true,
+      "update_catalog": true
+    }
+  ],
+  "$ref": "#/$defs/IntegrationManifest",
+  "$defs": {
+    "IntegrationManifest": {
+      "type": "object",
+      "required": [
+        "name",
+        "description",
+        "integration_type",
+        "support_level",
+        "status",
+        "link_github",
+        "update_catalog"
+      ],
+      "properties": {
+        "name": {
+          "description": "The name of the integration, excluding the type",
+          "type": "string"
+        },
+        "description": {
+          "description": "A high level description of the integration",
+          "type": "string"
+        },
+        "integration_type": {
+          "description": "Type of integration.  This should be one of the following: orchestrator, windows-orchestrator, iot-orchestrator, orchestrator-registration, registration-handler, ca-gateway, approval-handler, metadata, alert-handler, api-client, pam, or terraform",
+          "enum": [
+            "orchestrator",
+            "windows-orchestrator",
+            "orchestrator-registration",
+            "iot-orchestrator",
+            "registration-handler",
+            "ca-gateway",
+            "anyca-plugin",
+            "approval-handler",
+            "metadata",
+            "alert-handler",
+            "api-client",
+            "pam",
+            "terraform",
+            "ejbca",
+            "signserver"
+          ]
+        },
+        "support_level": {
+          "description": "Level of support effort",
+          "enum": [ "community", "kf-community", "kf-supported" ]
+        },
+        "status": {
+          "description": "Status of the integration.  This should be one of the following: prototype, pilot, production",
+          "enum": [ "prototype", "pilot", "production" ]
+        },
+        "link_github": {
+          "description": "Generate link to GitHub repository when generating the Integration Catalog",
+          "type": "boolean"
+        },
+        "update_catalog": {
+          "description": "Generate an entry in the Integration Catalog",
+          "type": "boolean"
+        },
+        "winSupport": {
+          "description": "Description of Windows platform-specific notes",
+          "type": "string"
+        },
+        "release_dir": {
+          "description": "location of folder or filename(s) for built binaries",
+          "type": "string"
+        },
+        "pamRegDLL": {
+          "description": "location of folder or filename(s) for PAM configuration/installation/registration",
+          "type": "string"
+        },
+        "about": {
+          "description": "Various capability information for an integration type",
+          "type": "object",
+          "properties": {
+            "orchestrator": {
+              "$ref": "#/$defs/AboutOrchestrator"
+            },
+            "pam": {
+              "$ref": "#/$defs/AboutPam"
+            },
+            "carest": {
+              "$ref": "#/$defs/AboutAnyCAREST"
+            }
+          }
+        }
+      }
+    },
+    "AboutOrchestrator": {
+      "type": "object",
+      "properties": {
+        "UOFramework": {
+          "description": "If present, this will be displayed in the readme as the minimum version of the Universal Orchestrator Framework required to run the integration",
+          "type": "string"
+        },
+        "keyfactor_platform_version": {
+          "description": "Keyfactor Command Platform minimum version",
+          "type": "string"
+        },
+        "store_types": {
+          "description": "List of store types supported by the integration",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/StoreType"
+          }
+        }
+      }
+    },
+    "AboutPam": {
+      "type": "object",
+      "required": [
+        "assemblyName",
+        "providerName",
+        "fullyQualifiedClassName",
+        "dbName"
+      ],
+      "properties": {
+        "assemblyName": {
+          "type": "string"
+        },
+        "providerName": {
+          "type": "string"
+        },
+        "fullyQualifiedClassName": {
+          "type": "string"
+        },
+        "dbName": {
+          "type": "string"
+        },
+        "pam_types": {
+          "description": "Key-value pair of PAM types supported by the integration",
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/PamType"
+          }
+        }
+      }
+    },
+    "AboutAnyCAREST": {
+      "type": "object",
+      "required": [ "ca_plugin_config", "enrollment_config" ],
+      "properties": {
+        "product_ids": {
+          "description": "A list of product IDs corresponding to certificate services offered by the CA",
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ca_plugin_config": {
+          "description": "A list of plugin configuration fields used to configure defined CAs in the Keyfactor AnyCA Gateway REST",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NameDescriptionObject"
+          }
+        },
+        "enrollment_config": {
+          "description": "A list of custom enrollment parameters that are used by defined CAs in the Keyfactor AnyCA Gateway REST for certificate enrollment",
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/NameDescriptionObject"
+          }
+        }
+      }
+    },
+    "StoreType": {
+      "description": "Certificate Store Type definition intermediate object representation",
+      "type": "object",
+      "required": [
+        "Name",
+        "Capability",
+        "SupportedOperations",
+        "Properties",
+        "PasswordOptions",
+        "PrivateKeyAllowed",
+        "ServerRequired",
+        "PowerShell",
+        "BlueprintAllowed",
+        "StorePathDescription",
+        "ClientMachineDescription"
+      ],
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "ShortName": {
+          "type": "string"
+        },
+        "Capability": {
+          "type": "string"
+        },
+        "LocalStore": {
+          "type": "boolean"
+        },
+        "ClientMachineDescription": {
+          "type": "string"
+        },
+        "StorePathDescription": {
+          "type": "string"
+        },
+        "SupportedOperations": {
+          "type": "object",
+          "required": [ "Add", "Remove", "Enrollment", "Discovery" ],
+          "properties": {
+            "Add": {
+              "type": "boolean"
+            },
+            "Remove": {
+              "type": "boolean"
+            },
+            "Enrollment": {
+              "type": "boolean"
+            },
+            "Discovery": {
+              "type": "boolean"
+            }
+          }
+        },
+        "Properties": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [ "Name", "DisplayName", "Type", "Description" ],
+            "properties": {
+              "Name": {
+                "type": "string"
+              },
+              "IsPAMEligible": {
+                "description": "Indicates that the store type property can be fetched from a configured orchestrator-side PAM provider",
+                "type": "boolean"
+              },
+              "DisplayName": {
+                "type": "string"
+              },
+              "Type": {
+                "type": "string"
+              },
+              "DependsOn": {
+                "type": "string"
+              },
+              "DefaultValue": {
+                "type": "string"
+              },
+              "Required": {
+                "type": "boolean"
+              },
+              "Description": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "EntryParameters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [ "Name", "DisplayName", "Type", "Description" ],
+            "properties": {
+              "Name": {
+                "type": "string"
+              },
+              "DisplayName": {
+                "type": "string"
+              },
+              "Type": {
+                "type": "string"
+              },
+              "RequiredWhen": {
+                "type": "object",
+                "properties": {
+                  "HasPrivateKey": {
+                    "type": "boolean"
+                  },
+                  "OnAdd": {
+                    "type": "boolean"
+                  },
+                  "OnRemove": {
+                    "type": "boolean"
+                  },
+                  "OnReenrollment": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "DefaultValue": {
+                "type": "string"
+              },
+              "DependsOn": {
+                "type": "string"
+              },
+              "Options": {
+                "type": "string"
+              },
+              "Description": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "PasswordOptions": {
+          "type": "object",
+          "required": [ "EntrySupported", "StoreRequired", "Style" ],
+          "properties": {
+            "EntrySupported": {
+              "type": "boolean"
+            },
+            "StoreRequired": {
+              "type": "boolean"
+            },
+            "Style": {
+              "enum": [ "Default", "Custom" ]
+            }
+          }
+        },
+        "StorePathType": {
+          "type": "string"
+        },
+        "StorePathValue": {
+          "type": "string"
+        },
+        "PrivateKeyAllowed": {
+          "enum": [ "Required", "Optional", "Forbidden" ]
+        },
+        "JobProperties": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ServerRequired": {
+          "type": "boolean"
+        },
+        "PowerShell": {
+          "type": "boolean"
+        },
+        "BlueprintAllowed": {
+          "type": "boolean"
+        },
+        "CustomAliasAllowed": {
+          "enum": [ "Required", "Optional", "Forbidden" ]
+        }
+      }
+    },
+    "PamType": {
+      "description": "PAM Type definition intermediate object representation",
+      "type": "object",
+      "required": [ "Name", "Parameters" ],
+      "properties": {
+        "Name": {
+          "type": "string"
+        },
+        "Parameters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "Name",
+              "DisplayName",
+              "DataType",
+              "InstanceLevel",
+              "Description"
+            ],
+            "properties": {
+              "Name": {
+                "type": "string"
+              },
+              "DisplayName": {
+                "type": "string"
+              },
+              "DataType": {
+                "type": "integer"
+              },
+              "InstanceLevel": {
+                "type": "boolean"
+              },
+              "Description": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "NameDescriptionObject": {
+      "type": "object",
+      "required": [ "name", "description" ],
+      "properties": {
+        "name": {
+          "description": "The name of the specific configuration field",
+          "type": "string"
+        },
+        "description": {
+          "description": "A description of the specific configuration field",
+          "type": "string"
+        }
+      }
+    }
+  }
+}
