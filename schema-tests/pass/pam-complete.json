@@ -15,12 +15,30 @@
       "dbName": "MyPamDatabase",
       "pam_types": {
         "password": {
-          "name": "Password",
-          "description": "Standard password rotation"
+          "Name": "Password",
+          "Description": "Standard password rotation",
+          "Parameters": [
+            {
+              "Name": "RotationInterval",
+              "DisplayName": "Rotation Interval",
+              "DataType": 1,
+              "InstanceLevel": false,
+              "Description": "Number of days between password rotations"
+            }
+          ]
         },
         "ssh_key": {
-          "name": "SSH Key",
-          "description": "SSH key management"
+          "Name": "SSH Key",
+          "Description": "SSH key management",
+          "Parameters": [
+            {
+              "Name": "KeyLength",
+              "DisplayName": "SSH Key Length",
+              "DataType": 2,
+              "InstanceLevel": false,
+              "Description": "Length of generated SSH keys in bits"
+            }
+          ]
         }
       }
     }

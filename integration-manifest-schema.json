@@ -99,14 +99,30 @@
               "Description"
             ],
             "properties": {
-              "Name": { "type": "string" },
-              "DisplayName": { "type": "string" },
-              "DataType": { "type": "integer" },
-              "InstanceLevel": { "type": "boolean" },
-              "Hidden": { "type": "boolean" },
-              "DefaultValue": { "type": "string" },
-              "Required": { "type": "boolean" },
-              "Description": { "type": "string" }
+              "Name": {
+                "type": "string"
+              },
+              "DisplayName": {
+                "type": "string"
+              },
+              "DataType": {
+                "type": "integer"
+              },
+              "InstanceLevel": {
+                "type": "boolean"
+              },
+              "Hidden": {
+                "type": "boolean"
+              },
+              "DefaultValue": {
+                "type": "string"
+              },
+              "Required": {
+                "type": "boolean"
+              },
+              "Description": {
+                "type": "string"
+              }
             }
           }
         }
@@ -123,14 +139,82 @@
         "link_github",
         "update_catalog"
       ],
+      "allOf": [
+        {
+          "if": {
+            "properties": { "integration_type": { "const": "orchestrator" } }
+          },
+          "then": {
+            "properties": {
+              "about": {
+                "type": "object",
+                "required": ["orchestrator"],
+                "properties": {
+                  "orchestrator": { "$ref": "#/$defs/AboutOrchestrator" }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "integration_type": { "const": "pam" } }
+          },
+          "then": {
+            "properties": {
+              "about": {
+                "type": "object",
+                "required": ["pam"],
+                "properties": {
+                  "pam": { "$ref": "#/$defs/AboutPam" }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "integration_type": { "const": "anyca-plugin" } }
+          },
+          "then": {
+            "properties": {
+              "about": {
+                "type": "object",
+                "required": ["carest"],
+                "properties": {
+                  "carest": { "$ref": "#/$defs/AboutAnyCAREST" }
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "integration_type": { "const": "dns-plugin" } }
+          },
+          "then": {
+            "properties": {
+              "about": {
+                "type": "object",
+                "required": ["dns_provider"],
+                "properties": {
+                  "dns_provider": { "$ref": "#/$defs/AboutDnsProvider" }
+                }
+              }
+            }
+          }
+        }
+      ],
       "properties": {
         "name": {
           "description": "The name of the integration, excluding the type",
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "description": {
           "description": "A high level description of the integration",
-          "type": "string"
+          "type": "string",
+          "minLength": 1
         },
         "integration_type": {
           "description": "Type of integration.  This should be one of the following: orchestrator, windows-orchestrator, iot-orchestrator, orchestrator-registration, registration-handler, ca-gateway, approval-handler, metadata, alert-handler, api-client, pam, terraform, or dns-plugin",
@@ -155,11 +239,11 @@
         },
         "support_level": {
           "description": "Level of support effort",
-          "enum": [ "community", "kf-community", "kf-supported" ]
+          "enum": ["community", "kf-community", "kf-supported"]
         },
         "status": {
           "description": "Status of the integration.  This should be one of the following: prototype, pilot, production",
-          "enum": [ "prototype", "pilot", "production" ]
+          "enum": ["prototype", "pilot", "production"]
         },
         "link_github": {
           "description": "Generate link to GitHub repository when generating the Integration Catalog",
@@ -184,6 +268,7 @@
         "about": {
           "description": "Various capability information for an integration type",
           "type": "object",
+          "maxProperties": 1,
           "properties": {
             "orchestrator": {
               "$ref": "#/$defs/AboutOrchestrator"
@@ -231,16 +316,24 @@
       ],
       "properties": {
         "assemblyName": {
-          "type": "string"
+          "type": "string",
+          "description": "The name of the PAM provider assembly, excluding the file extension",
+          "minLength": 1
         },
         "providerName": {
-          "type": "string"
+          "type": "string",
+          "description": "The name of the PAM provider",
+          "minLength": 1
         },
         "fullyQualifiedClassName": {
-          "type": "string"
+          "type": "string",
+          "description": "The fully qualified class name of the PAM provider implementation, including namespace",
+          "minLength": 1
         },
         "dbName": {
-          "type": "string"
+          "type": "string",
+          "description": "The name of the PAM provider database used for storing instance and credential information",
+          "minLength": 1
         },
         "pam_types": {
           "description": "Key-value pair of PAM types supported by the integration",
@@ -253,7 +346,7 @@
     },
     "AboutAnyCAREST": {
       "type": "object",
-      "required": [ "ca_plugin_config", "enrollment_config" ],
+      "required": ["ca_plugin_config", "enrollment_config"],
       "properties": {
         "product_ids": {
           "description": "A list of product IDs corresponding to certificate services offered by the CA",
@@ -315,7 +408,7 @@
         },
         "SupportedOperations": {
           "type": "object",
-          "required": [ "Add", "Remove", "Enrollment", "Discovery" ],
+          "required": ["Add", "Remove", "Enrollment", "Discovery"],
           "properties": {
             "Add": {
               "type": "boolean"
@@ -335,7 +428,7 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": [ "Name", "DisplayName", "Type", "Description" ],
+            "required": ["Name", "DisplayName", "Type", "Description"],
             "properties": {
               "Name": {
                 "type": "string"
@@ -369,7 +462,7 @@
           "type": "array",
           "items": {
             "type": "object",
-            "required": [ "Name", "DisplayName", "Type", "Description" ],
+            "required": ["Name", "DisplayName", "Type", "Description"],
             "properties": {
               "Name": {
                 "type": "string"
@@ -414,7 +507,7 @@
         },
         "PasswordOptions": {
           "type": "object",
-          "required": [ "EntrySupported", "StoreRequired", "Style" ],
+          "required": ["EntrySupported", "StoreRequired", "Style"],
           "properties": {
             "EntrySupported": {
               "type": "boolean"
@@ -423,7 +516,7 @@
               "type": "boolean"
             },
             "Style": {
-              "enum": [ "Default", "Custom" ]
+              "enum": ["Default", "Custom"]
             }
           }
         },
@@ -434,7 +527,7 @@
           "type": "string"
         },
         "PrivateKeyAllowed": {
-          "enum": [ "Required", "Optional", "Forbidden" ]
+          "enum": ["Required", "Optional", "Forbidden"]
         },
         "JobProperties": {
           "type": "array",
@@ -452,14 +545,14 @@
           "type": "boolean"
         },
         "CustomAliasAllowed": {
-          "enum": [ "Required", "Optional", "Forbidden" ]
+          "enum": ["Required", "Optional", "Forbidden"]
         }
       }
     },
     "PamType": {
       "description": "PAM Type definition intermediate object representation",
       "type": "object",
-      "required": [ "Name", "Parameters" ],
+      "required": ["Name", "Parameters"],
       "properties": {
         "Name": {
           "type": "string"
@@ -498,7 +591,7 @@
     },
     "NameDescriptionObject": {
       "type": "object",
-      "required": [ "name", "description" ],
+      "required": ["name", "description"],
       "properties": {
         "name": {
           "description": "The name of the specific configuration field",
