@@ -1,0 +1,43 @@
+{
+  "name": "Complex Nested PAM Invalid Structure",
+  "description": "PAM with complex nested validation failures in pam_types",
+  "integration_type": "pam",
+  "support_level": "community",
+  "status": "prototype",
+  "link_github": false,
+  "update_catalog": false,
+  "about": {
+    "pam": {
+      "assemblyName": "ComplexPam",
+      "providerName": "complex",
+      "fullyQualifiedClassName": "Complex.Pam.Provider",
+      "dbName": "ComplexPamDB",
+      "pam_types": {
+        "valid_type": {
+          "Name": "Valid Type",
+          "Parameters": [
+            {
+              "Name": "ValidParam",
+              "DisplayName": "Valid Parameter",
+              "DataType": 1,
+              "InstanceLevel": false,
+              "Description": "This parameter is valid"
+            }
+          ]
+        },
+        "invalid_type": {
+          "Name": "Invalid Type",
+          "Parameters": [
+            {
+              "Name": "InvalidParam",
+              "DisplayName": 123,
+              "DataType": "not_integer",
+              "InstanceLevel": "not_boolean",
+              "Description": {"not": "string"}
+            }
+          ]
+        }
+      }
+    }
+  }
+}

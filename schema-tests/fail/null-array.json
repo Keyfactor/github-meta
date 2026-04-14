@@ -1,0 +1,19 @@
+{
+  "name": "Null vs Empty Array Edge Case",
+  "description": "Tests null array vs empty array handling",
+  "integration_type": "dns-plugin", 
+  "support_level": "community",
+  "status": "prototype",
+  "link_github": false,
+  "update_catalog": false,
+  "about": {
+    "dns_provider": {
+      "providerName": "nullarray",
+      "displayName": "Null Array Provider",
+      "assemblyName": "NullArrayProvider",
+      "fullyQualifiedClassName": "Test.NullArray", 
+      "validationType": "dns-01",
+      "dns_provider_config": null
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "name": "Store Type Missing Nested Required",
+  "description": "Orchestrator with store type missing deep nested required fields",
+  "integration_type": "orchestrator",
+  "support_level": "community",
+  "status": "prototype",
+  "link_github": false,
+  "update_catalog": false,
+  "about": {
+    "orchestrator": {
+      "store_types": [
+        {
+          "Name": "IncompleteStore",
+          "Capability": "IncompleteCapability",
+          "ClientMachineDescription": "Machine description",
+          "StorePathDescription": "Store path description",
+          "SupportedOperations": {
+            "Add": true,
+            "Remove": true
+          },
+          "Properties": [
+            {
+              "Name": "IncompleteProperty",
+              "DisplayName": "Incomplete Property"
+            }
+          ],
+          "PasswordOptions": {
+            "EntrySupported": true
+          },
+          "PrivateKeyAllowed": "Required",
+          "ServerRequired": true,
+          "PowerShell": false,
+          "BlueprintAllowed": true
+        }
+      ]
+    }
+  }
+}

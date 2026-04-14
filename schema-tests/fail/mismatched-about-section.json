@@ -1,0 +1,19 @@
+{
+  "name": "Mismatched About Section",
+  "description": "PAM integration type but with DNS provider about section",
+  "integration_type": "pam",
+  "support_level": "community",
+  "status": "prototype",
+  "link_github": false,
+  "update_catalog": false,
+  "about": {
+    "dns_provider": {
+      "providerName": "wrongtype",
+      "displayName": "Wrong Type Provider", 
+      "assemblyName": "WrongTypeProvider",
+      "fullyQualifiedClassName": "Test.WrongType",
+      "validationType": "dns-01",
+      "dns_provider_config": []
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "name": "Incomplete DNS Provider",
+  "description": "DNS plugin missing required nested fields",
+  "integration_type": "dns-plugin",
+  "support_level": "community",
+  "status": "prototype",
+  "link_github": false,
+  "update_catalog": false,
+  "about": {
+    "dns_provider": {
+      "providerName": "incomplete",
+      "displayName": "Incomplete Provider"
+    }
+  }
+}

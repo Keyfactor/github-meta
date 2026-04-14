@@ -1,0 +1,28 @@
+{
+  "name": "PAM Provider Integration",
+  "description": "Privileged Access Management provider with complete configuration",
+  "integration_type": "pam",
+  "support_level": "kf-community",
+  "status": "pilot",
+  "link_github": true,
+  "update_catalog": true,
+  "pamRegDLL": "MyPamProvider/bin/Registration.dll",
+  "about": {
+    "pam": {
+      "assemblyName": "MyPamProvider",
+      "providerName": "mypam",
+      "fullyQualifiedClassName": "MyCompany.PAM.MyPamProvider",
+      "dbName": "MyPamDatabase",
+      "pam_types": {
+        "password": {
+          "name": "Password",
+          "description": "Standard password rotation"
+        },
+        "ssh_key": {
+          "name": "SSH Key",
+          "description": "SSH key management"
+        }
+      }
+    }
+  }
+}

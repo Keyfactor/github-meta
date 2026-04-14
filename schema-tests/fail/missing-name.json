@@ -1,0 +1,8 @@
+{
+  "description": "Missing name field should fail validation",
+  "integration_type": "orchestrator",
+  "support_level": "community",
+  "status": "prototype",
+  "link_github": false,
+  "update_catalog": false
+}

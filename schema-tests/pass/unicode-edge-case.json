@@ -1,0 +1,11 @@
+{
+  "name": "Unicode Characters Test ñáéíóú",
+  "description": "Integration with complex Unicode characters in strings: «»¿¡™®€£¥₹",
+  "integration_type": "orchestrator",
+  "support_level": "community", 
+  "status": "prototype",
+  "link_github": false,
+  "update_catalog": false,
+  "winSupport": "Supports Windows with Unicode: αβγδε 中文 العربية русский 日本語",
+  "release_dir": "υπο/δείγμα/bin/Release"
+}

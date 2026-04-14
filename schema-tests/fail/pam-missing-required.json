@@ -1,0 +1,14 @@
+{
+  "name": "Invalid PAM Structure",
+  "description": "PAM integration with missing required fields",
+  "integration_type": "pam",
+  "support_level": "community",
+  "status": "prototype",
+  "link_github": false,
+  "update_catalog": false,
+  "about": {
+    "pam": {
+      "assemblyName": "MyPamProvider"
+    }
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "name": "Universal Orchestrator Store Types",
+  "description": "Orchestrator integration with multiple store type definitions",
+  "integration_type": "orchestrator", 
+  "support_level": "kf-supported",
+  "status": "production",
+  "link_github": true,
+  "update_catalog": true,
+  "release_dir": "src/bin/Release",
+  "winSupport": "Compatible with Windows 10 and Server 2016+",
+  "about": {
+    "orchestrator": {
+      "UOFramework": "10.4.0",
+      "keyfactor_platform_version": "9.10.0",
+      "store_types": [
+        {
+          "Name": "TestStore",
+          "ShortName": "TEST",
+          "Capability": "TestStoreCapability",
+          "LocalStore": false,
+          "ClientMachineDescription": "Test machine for certificate storage",
+          "StorePathDescription": "Path to the test certificate store",
+          "SupportedOperations": {
+            "Add": true,
+            "Remove": true,
+            "Enrollment": false,
+            "Discovery": true
+          },
+          "Properties": [
+            {
+              "Name": "TestProperty",
+              "IsPAMEligible": true,
+              "DisplayName": "Test Property",
+              "Type": "String",
+              "DependsOn": "",
+              "DefaultValue": "default",
+              "Required": true,
+              "Description": "A test property for the store type"
+            }
+          ],
+          "EntryParameters": [
+            {
+              "Name": "TestParam",
+              "DisplayName": "Test Parameter",
+              "Type": "String",
+              "RequiredWhen": {
+                "HasPrivateKey": true,
+                "OnAdd": true,
+                "OnRemove": false,
+                "OnReenrollment": false
+              },
+              "DefaultValue": "",
+              "Description": "Test parameter for entry"
+            }
+          ],
+          "PasswordOptions": {
+            "EntrySupported": true,
+            "StoreRequired": false,
+            "Style": "Default"
+          },
+          "PrivateKeyAllowed": "Required",
+          "ServerRequired": true,
+          "PowerShell": false,
+          "BlueprintAllowed": true,
+          "CustomAliasAllowed": "Optional"
+        }
+      ]
+    }
+  }
+}

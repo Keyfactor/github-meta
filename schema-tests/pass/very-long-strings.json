@@ -1,0 +1,10 @@
+{
+  "name": "Extremely Long String Edge Case Test That Continues For A Very Long Time To Test Buffer Handling And String Length Validation In The JSON Schema Parser And AJV Validation Engine Which Should Handle Arbitrarily Long Strings But This Tests The Practical Limits",
+  "description": "This description is also extremely long and tests whether the schema and validation tools can handle very long string values without issues. Sometimes schemas impose practical length limits or validation tools have buffer size restrictions that only become apparent with edge case testing like this. The goal is to ensure our integration manifest schema can handle realistic but extreme use cases where developers might have very detailed descriptions or very long integration names that could potentially cause validation or parsing issues in downstream tools that process these manifests.",
+  "integration_type": "orchestrator",
+  "support_level": "community",
+  "status": "prototype",
+  "link_github": false,
+  "update_catalog": false,
+  "release_dir": "very/deeply/nested/directory/structure/that/goes/on/for/a/very/long/time/to/test/path/length/handling/bin/Release"
+}

@@ -1,0 +1,40 @@
+{
+  "name": "DNS Config Array Malformed",
+  "description": "DNS provider with malformed config array items",
+  "integration_type": "dns-plugin",
+  "support_level": "community",
+  "status": "prototype",
+  "link_github": false,
+  "update_catalog": false,
+  "about": {
+    "dns_provider": {
+      "providerName": "malformed",
+      "displayName": "Malformed Provider",
+      "assemblyName": "MalformedProvider",
+      "fullyQualifiedClassName": "Test.Malformed",
+      "validationType": "dns-01",
+      "dns_provider_config": [
+        {
+          "Name": "ValidConfig",
+          "DisplayName": "Valid Config",
+          "DataType": 1,
+          "InstanceLevel": false,
+          "Hidden": false,
+          "DefaultValue": "",
+          "Required": true,
+          "Description": "This one is valid"
+        },
+        {
+          "Name": "InvalidConfig",
+          "DisplayName": "Invalid Config",
+          "DataType": "not_an_integer",
+          "InstanceLevel": "not_a_boolean",
+          "Hidden": "also_not_a_boolean",
+          "DefaultValue": 123,
+          "Required": "not_a_boolean_either",
+          "Description": ["not", "a", "string"]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "Special Characters and Escaping",
+  "description": "Integration testing special JSON characters: \\\"quotes\\\", \\\\backslashes\\\\, \\n\\r\\t whitespace",
+  "integration_type": "orchestrator",
+  "support_level": "community",
+  "status": "prototype", 
+  "link_github": false,
+  "update_catalog": false,
+  "release_dir": "path/with spaces/and\"quotes\"/bin\\Release",
+  "winSupport": "Requires: <Windows> & [Server] versions >= 2019 | 2022"
+}

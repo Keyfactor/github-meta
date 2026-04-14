@@ -1,0 +1,16 @@
+{
+  "name": "IoT Device Orchestrator",
+  "description": "Orchestrator for IoT device certificate management",
+  "integration_type": "iot-orchestrator", 
+  "support_level": "kf-supported",
+  "status": "production",
+  "link_github": false,
+  "update_catalog": true,
+  "winSupport": "Requires Windows IoT Core",
+  "about": {
+    "orchestrator": {
+      "UOFramework": "10.0.0",
+      "keyfactor_platform_version": "9.0.0"
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "name": "CA Gateway Integration",
+  "description": "Certificate authority gateway for external CA integration",
+  "integration_type": "ca-gateway",
+  "support_level": "community", 
+  "status": "prototype",
+  "link_github": true,
+  "update_catalog": false
+}

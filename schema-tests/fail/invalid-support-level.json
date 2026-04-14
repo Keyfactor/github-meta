@@ -1,0 +1,9 @@
+{
+  "name": "Invalid Support Level",
+  "description": "This has an invalid support level enum value",
+  "integration_type": "orchestrator",
+  "support_level": "invalid_support",
+  "status": "prototype",
+  "link_github": false,
+  "update_catalog": false
+}

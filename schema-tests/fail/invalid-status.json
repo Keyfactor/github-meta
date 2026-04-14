@@ -1,0 +1,9 @@
+{
+  "name": "Invalid Status Enum",
+  "description": "This has an invalid status value",
+  "integration_type": "orchestrator",
+  "support_level": "community",
+  "status": "invalid_status_value",
+  "link_github": false,
+  "update_catalog": false
+}

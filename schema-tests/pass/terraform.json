@@ -1,0 +1,10 @@
+{
+  "name": "Terraform Provider",
+  "description": "Terraform provider for Keyfactor Command automation",
+  "integration_type": "terraform",
+  "support_level": "kf-supported", 
+  "status": "production",
+  "link_github": true,
+  "update_catalog": true,
+  "release_dir": "terraform-provider-keyfactor"
+}

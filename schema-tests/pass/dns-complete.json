@@ -1,0 +1,43 @@
+{
+  "name": "Complete DNS Plugin",
+  "description": "A complete DNS plugin integration manifest with all DNS provider configuration",
+  "integration_type": "dns-plugin",
+  "support_level": "kf-supported",
+  "status": "production",
+  "link_github": true,
+  "update_catalog": true,
+  "release_dir": "Keyfactor.DnsProvider.TestDNS/bin/Release",
+  "release_project": "Keyfactor.DnsProvider.TestDNS/Keyfactor.DnsProvider.TestDNS.csproj",
+  "winSupport": "Supports Windows Server 2019 and later",
+  "about": {
+    "dns_provider": {
+      "providerName": "testdns",
+      "displayName": "Test DNS Provider",
+      "assemblyName": "TestDNSDomainValidator",
+      "fullyQualifiedClassName": "Keyfactor.Extensions.DomainValidator.TestDNS.TestDNSDomainValidator",
+      "validationType": "dns-01",
+      "dns_provider_config": [
+        {
+          "Name": "TestDNS_ApiKey",
+          "DisplayName": "API Key",
+          "DataType": 2,
+          "InstanceLevel": false,
+          "Hidden": true,
+          "DefaultValue": "",
+          "Required": true,
+          "Description": "API key for TestDNS service authentication"
+        },
+        {
+          "Name": "TestDNS_Zone",
+          "DisplayName": "DNS Zone",
+          "DataType": 1,
+          "InstanceLevel": true,
+          "Hidden": false,
+          "DefaultValue": "example.com",
+          "Required": false,
+          "Description": "The DNS zone to manage records in"
+        }
+      ]
+    }
+  }
+}

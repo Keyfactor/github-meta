@@ -1,0 +1,39 @@
+{
+  "name": "AnyCA Gateway Plugin", 
+  "description": "Certificate authority gateway integration with enrollment configuration",
+  "integration_type": "anyca-plugin",
+  "support_level": "community",
+  "status": "prototype", 
+  "link_github": false,
+  "update_catalog": false,
+  "release_dir": "MyCA/bin/Release",
+  "about": {
+    "carest": {
+      "product_ids": [
+        "BASIC_CERT",
+        "EXTENDED_CERT", 
+        "SSL_CERT"
+      ],
+      "ca_plugin_config": [
+        {
+          "name": "ca_url",
+          "description": "URL endpoint for the certificate authority"
+        },
+        {
+          "name": "api_key",
+          "description": "API key for authentication with the CA"
+        }
+      ],
+      "enrollment_config": [
+        {
+          "name": "cert_template",
+          "description": "Name of the certificate template to use"
+        },
+        {
+          "name": "validity_period",
+          "description": "Certificate validity period in days"
+        }
+      ]
+    }
+  }
+}

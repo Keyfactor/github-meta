@@ -1,0 +1,9 @@
+{
+  "name": "Minimal Integration",
+  "description": "A minimal valid integration manifest with only required fields",
+  "integration_type": "orchestrator",
+  "support_level": "community",
+  "status": "prototype",
+  "link_github": false,
+  "update_catalog": false
+}

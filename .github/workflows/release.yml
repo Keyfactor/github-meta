@@ -1,0 +1,69 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*'  # Matches semver tags like v1.0.0, v2.1.3, v1.0.0-beta.1
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write  # Required to create releases
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        
+      - name: Get tag name
+        id: tag
+        run: echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        
+      - name: Check if pre-release
+        id: prerelease
+        run: |
+          if [[ "${{ steps.tag.outputs.tag }}" =~ -[a-zA-Z] ]]; then
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+          fi
+        
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          cat > release_notes.md << 'EOF'
+          ## GitHub Actions for Integration Manifest Validation
+          
+          This release provides the `validate-manifest` action for validating Keyfactor integration manifests.
+          
+          ### Usage
+          
+          ```yaml
+          - name: Validate Integration Manifest
+            uses: keyfactor/github-meta/validate-manifest@${{ steps.tag.outputs.tag }}
+            with:
+              manifest-file: integration-manifest.json  # optional, defaults to integration-manifest.json
+          ```
+          
+          ### Features
+          
+          - ✅ Validates JSON manifests against the Keyfactor integration manifest schema
+          - ✅ Detailed error messages with field paths when validation fails
+          - ✅ Configurable manifest file path
+          - ✅ Fast composite action using AJV CLI
+          
+          ### What's included in this release
+          
+          - `validate-manifest` action for schema validation
+          - Integration manifest schema validation using AJV
+          - Detailed validation error reporting
+          EOF
+          
+      - name: Create GitHub Release
+        run: |
+          gh release create "${{ steps.tag.outputs.tag }}" \
+            --title "Release ${{ steps.tag.outputs.tag }}" \
+            --notes-file release_notes.md \
+            ${{ steps.prerelease.outputs.prerelease == 'true' && '--prerelease' || '' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

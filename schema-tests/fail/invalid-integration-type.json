@@ -1,0 +1,9 @@
+{
+  "name": "Invalid Integration Type",
+  "description": "This has an invalid integration type",
+  "integration_type": "invalid_type_not_in_enum",
+  "support_level": "community",
+  "status": "prototype",
+  "link_github": false,
+  "update_catalog": false
+}

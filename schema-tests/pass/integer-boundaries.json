@@ -1,0 +1,40 @@
+{
+  "name": "Maximum Integer Values",
+  "description": "Tests boundary values for integer fields",
+  "integration_type": "dns-plugin",
+  "support_level": "community",
+  "status": "prototype",
+  "link_github": false,
+  "update_catalog": false,
+  "about": {
+    "dns_provider": {
+      "providerName": "maxint",
+      "displayName": "Max Integer Provider",
+      "assemblyName": "MaxIntProvider",
+      "fullyQualifiedClassName": "Test.MaxInt",
+      "validationType": "dns-01",
+      "dns_provider_config": [
+        {
+          "Name": "MaxValueTest",
+          "DisplayName": "Maximum Value Test",
+          "DataType": 2147483647,
+          "InstanceLevel": false,
+          "Hidden": false,
+          "DefaultValue": "",
+          "Required": true,
+          "Description": "Testing maximum 32-bit signed integer value"
+        },
+        {
+          "Name": "ZeroValueTest", 
+          "DisplayName": "Zero Value Test",
+          "DataType": 0,
+          "InstanceLevel": false,
+          "Hidden": false,
+          "DefaultValue": "",
+          "Required": true,
+          "Description": "Testing zero value"
+        }
+      ]
+    }
+  }
+}

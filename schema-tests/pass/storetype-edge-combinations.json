@@ -1,0 +1,54 @@
+{
+  "name": "Store Type Edge Case Properties",
+  "description": "Orchestrator with store types containing edge case property configurations",
+  "integration_type": "orchestrator",
+  "support_level": "kf-supported",
+  "status": "production",
+  "link_github": true,
+  "update_catalog": true,
+  "about": {
+    "orchestrator": {
+      "UOFramework": "10.4.0",
+      "keyfactor_platform_version": "9.10.0",
+      "store_types": [
+        {
+          "Name": "EdgeCaseStore",
+          "ShortName": "EDGE",
+          "Capability": "EdgeCapability", 
+          "LocalStore": true,
+          "ClientMachineDescription": "Edge case machine",
+          "StorePathDescription": "Edge case store path",
+          "SupportedOperations": {
+            "Add": false,
+            "Remove": false,
+            "Enrollment": false,
+            "Discovery": false
+          },
+          "Properties": [
+            {
+              "Name": "EmptyDefaultValue",
+              "IsPAMEligible": false,
+              "DisplayName": "Empty Default",
+              "Type": "String",
+              "DependsOn": "",
+              "DefaultValue": "",
+              "Required": false,
+              "Description": "Property with empty default value"
+            }
+          ],
+          "EntryParameters": [],
+          "PasswordOptions": {
+            "EntrySupported": false,
+            "StoreRequired": false,
+            "Style": "Custom" 
+          },
+          "PrivateKeyAllowed": "Forbidden",
+          "ServerRequired": false,
+          "PowerShell": true,
+          "BlueprintAllowed": false,
+          "CustomAliasAllowed": "Required"
+        }
+      ]
+    }
+  }
+}

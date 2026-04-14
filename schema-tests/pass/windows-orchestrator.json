@@ -1,0 +1,9 @@
+{
+  "name": "Windows Specific Orchestrator",
+  "description": "Windows-specific orchestrator integration", 
+  "integration_type": "windows-orchestrator",
+  "support_level": "kf-community",
+  "status": "pilot",
+  "link_github": true,
+  "update_catalog": true
+}

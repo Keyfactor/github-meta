@@ -1,0 +1,43 @@
+{
+  "$schema": "https://keyfactor.github.io/v2/integration-manifest-schema.json",
+  "integration_type": "dns-plugin",
+  "name": "AWS Route53 DNS Plugin",
+  "status": "pilot",
+  "support_level": "kf-community",
+  "update_catalog": false,
+  "link_github": false,
+  "description": "DNS-01 challenge validation provider using AWS Route53. Implements the IDomainValidator interface to create, manage, and clean up DNS TXT records in AWS Route53 hosted zones for ACME domain validation. Supports both explicit IAM credentials and default AWS credential chain authentication.",
+  "release_dir": "Keyfactor.DnsProvider.AwsRoute53/bin/Release",
+  "release_project": "Keyfactor.DnsProvider.AwsRoute53/Keyfactor.DnsProvider.AwsRoute53.csproj",
+  "about": {
+    "dns_provider": {
+      "providerName": "awsroute53",
+      "displayName": "AWS Route53 DNS",
+      "assemblyName": "AwsRoute53DomainValidator",
+      "fullyQualifiedClassName": "Keyfactor.Extensions.DomainValidator.AwsRoute53.AwsRoute53DomainValidator",
+      "validationType": "dns-01",
+      "dns_provider_config": [
+        {
+          "Name": "AwsRoute53_AccessKey",
+          "DisplayName": "AWS Access Key ID",
+          "DataType": 1,
+          "InstanceLevel": false,
+          "Hidden": false,
+          "DefaultValue": "",
+          "Required": false,
+          "Description": "AWS Route53: Access Key ID. Optional if using default AWS credential chain (IAM role, environment variables, or config)."
+        },
+        {
+          "Name": "AwsRoute53_SecretKey",
+          "DisplayName": "AWS Secret Access Key",
+          "DataType": 2,
+          "InstanceLevel": false,
+          "Hidden": true,
+          "DefaultValue": "",
+          "Required": false,
+          "Description": "AWS Route53: Secret Access Key. Optional if using default AWS credential chain (IAM role, environment variables, or config)."
+        }
+      ]
+    }
+  }
+}

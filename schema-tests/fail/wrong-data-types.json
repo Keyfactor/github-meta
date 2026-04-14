@@ -1,0 +1,9 @@
+{
+  "name": "Wrong Data Types",
+  "description": "This manifest has wrong data types",
+  "integration_type": "orchestrator",
+  "support_level": "community",
+  "status": "prototype",
+  "link_github": "not_a_boolean",
+  "update_catalog": "also_not_a_boolean"
+}

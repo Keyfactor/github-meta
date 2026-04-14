@@ -10,12 +10,108 @@
       "integration_type": "orchestrator",
       "support_level": "community",
       "status": "prototype",
-      "link_github": true,
-      "update_catalog": true
+      "link_github": false,
+      "update_catalog": false
+    },
+    {
+      "name": "DNS Plugin",
+      "description": "Example DNS plugin",
+      "integration_type": "dns-plugin",
+      "support_level": "kf-community",
+      "status": "pilot",
+      "link_github": false,
+      "update_catalog": false,
+      "release_dir": "Keyfactor.DnsProvider.ExampleDNS/bin/Release",
+      "release_project": "Keyfactor.DnsProvider.ExampleDNS/Keyfactor.DnsProvider.ExampleDNS.csproj",
+      "about": {
+        "dns_provider": {
+          "providerName": "exampledns",
+          "displayName": "Example DNS",
+          "assemblyName": "ExampleDNSDomainValidator",
+          "fullyQualifiedClassName": "Keyfactor.Extensions.DomainValidator.ExampleDNS.ExampleDNSDomainValidator",
+          "validationType": "dns-01",
+          "dns_provider_config": [
+            {
+              "Name": "ExampleDNS_AccessKey",
+              "DisplayName": "Example DNS Access Key ID",
+              "DataType": 1,
+              "InstanceLevel": false,
+              "Hidden": false,
+              "DefaultValue": "",
+              "Required": false,
+              "Description": "Example DNS: Access Key ID. Optional if using default credential chain."
+            },
+            {
+              "Name": "ExampleDNS_SecretKey",
+              "DisplayName": "Example DNS Secret Access Key",
+              "DataType": 2,
+              "InstanceLevel": false,
+              "Hidden": true,
+              "DefaultValue": "",
+              "Required": false,
+              "Description": "Example DNS: Secret Access Key. Optional if using default credential chain."
+            }
+          ]
+        }
+      }
     }
   ],
   "$ref": "#/$defs/IntegrationManifest",
   "$defs": {
+    "AboutDnsProvider": {
+      "type": "object",
+      "required": [
+        "providerName",
+        "displayName",
+        "assemblyName",
+        "fullyQualifiedClassName",
+        "validationType",
+        "dns_provider_config"
+      ],
+      "properties": {
+        "providerName": {
+          "type": "string"
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "assemblyName": {
+          "type": "string"
+        },
+        "fullyQualifiedClassName": {
+          "type": "string"
+        },
+        "validationType": {
+          "type": "string"
+        },
+        "dns_provider_config": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "Name",
+              "DisplayName",
+              "DataType",
+              "InstanceLevel",
+              "Hidden",
+              "DefaultValue",
+              "Required",
+              "Description"
+            ],
+            "properties": {
+              "Name": { "type": "string" },
+              "DisplayName": { "type": "string" },
+              "DataType": { "type": "integer" },
+              "InstanceLevel": { "type": "boolean" },
+              "Hidden": { "type": "boolean" },
+              "DefaultValue": { "type": "string" },
+              "Required": { "type": "boolean" },
+              "Description": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
     "IntegrationManifest": {
       "type": "object",
       "required": [
@@ -37,7 +133,7 @@
           "type": "string"
         },
         "integration_type": {
-          "description": "Type of integration.  This should be one of the following: orchestrator, windows-orchestrator, iot-orchestrator, orchestrator-registration, registration-handler, ca-gateway, approval-handler, metadata, alert-handler, api-client, pam, or terraform",
+          "description": "Type of integration.  This should be one of the following: orchestrator, windows-orchestrator, iot-orchestrator, orchestrator-registration, registration-handler, ca-gateway, approval-handler, metadata, alert-handler, api-client, pam, terraform, or dns-plugin",
           "enum": [
             "orchestrator",
             "windows-orchestrator",
@@ -53,7 +149,8 @@
             "pam",
             "terraform",
             "ejbca",
-            "signserver"
+            "signserver",
+            "dns-plugin"
           ]
         },
         "support_level": {
@@ -96,6 +193,9 @@
             },
             "carest": {
               "$ref": "#/$defs/AboutAnyCAREST"
+            },
+            "dns_provider": {
+              "$ref": "#/$defs/AboutDnsProvider"
             }
           }
         }

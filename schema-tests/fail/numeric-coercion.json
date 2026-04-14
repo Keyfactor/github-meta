@@ -1,0 +1,30 @@
+{
+  "name": "Type Coercion Edge Case",
+  "description": "Tests numeric type coercion boundaries",
+  "integration_type": "dns-plugin",
+  "support_level": "community",
+  "status": "prototype", 
+  "link_github": false,
+  "update_catalog": false,
+  "about": {
+    "dns_provider": {
+      "providerName": "typetest",
+      "displayName": "Type Test Provider",
+      "assemblyName": "TypeTestProvider",
+      "fullyQualifiedClassName": "Test.TypeTest",
+      "validationType": "dns-01",
+      "dns_provider_config": [
+        {
+          "Name": "FloatAsInteger",
+          "DisplayName": "Float As Integer", 
+          "DataType": 1.5,
+          "InstanceLevel": false,
+          "Hidden": false,
+          "DefaultValue": "",
+          "Required": true,
+          "Description": "DataType should be integer, not float"
+        }
+      ]
+    }
+  }
+}

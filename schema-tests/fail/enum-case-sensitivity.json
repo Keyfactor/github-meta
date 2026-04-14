@@ -1,0 +1,9 @@
+{
+  "name": "Case Sensitive Enum Failure",
+  "description": "Tests case sensitivity in enum validation",
+  "integration_type": "ORCHESTRATOR",
+  "support_level": "COMMUNITY", 
+  "status": "PROTOTYPE",
+  "link_github": false,
+  "update_catalog": false
+}

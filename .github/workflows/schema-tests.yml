@@ -1,0 +1,98 @@
+name: Schema Validation Tests
+
+on:
+  push:
+    branches: [ main ]
+    paths: 
+      - 'integration-manifest-schema.json'
+      - 'schema-tests/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'integration-manifest-schema.json' 
+      - 'schema-tests/**'
+
+permissions:
+  contents: read  # Read-only access to repository contents for checkout and validation
+
+jobs:
+  validate-schema-tests:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          
+      - name: Test passing cases
+        run: |
+          echo "Testing that valid manifests pass validation..."
+          PASS_COUNT=0
+          FAIL_COUNT=0
+          
+          for file in schema-tests/pass/*.json; do
+            if [ -f "$file" ]; then
+              echo "Testing $file (should pass)..."
+              if npx --package=ajv-cli ajv validate -s integration-manifest-schema.json -d "$file" --errors=text; then
+                echo "✅ $file passed validation (expected)"
+                ((PASS_COUNT++))
+              else
+                echo "❌ $file failed validation (unexpected)"
+                ((FAIL_COUNT++))
+              fi
+            fi
+          done
+          
+          echo "Pass test results: $PASS_COUNT passed, $FAIL_COUNT failed"
+          if [ $FAIL_COUNT -gt 0 ]; then
+            echo "ERROR: Some files that should pass validation are failing!"
+            exit 1
+          fi
+
+      - name: Test failing cases
+        run: |
+          echo "Testing that invalid manifests fail validation..."
+          PASS_COUNT=0
+          FAIL_COUNT=0
+          
+          for file in schema-tests/fail/*.json; do
+            if [ -f "$file" ]; then
+              echo "Testing $file (should fail)..."
+              if npx --package=ajv-cli ajv validate -s integration-manifest-schema.json -d "$file" --errors=text; then
+                echo "❌ $file passed validation (unexpected)"
+                ((PASS_COUNT++))
+              else
+                echo "✅ $file failed validation (expected)"
+                ((FAIL_COUNT++))
+              fi
+            fi
+          done
+          
+          echo "Fail test results: $FAIL_COUNT failed as expected, $PASS_COUNT passed unexpectedly"
+          if [ $PASS_COUNT -gt 0 ]; then
+            echo "ERROR: Some files that should fail validation are passing!"
+            exit 1
+          fi
+          
+      - name: Summary
+        run: |
+          echo "Schema validation tests completed successfully!"
+          echo "✅ All files in schema-tests/pass/ validated successfully"
+          echo "✅ All files in schema-tests/fail/ failed validation as expected"
+          echo "✅ The integration manifest schema is working correctly"
+          echo ""
+          echo "Edge cases tested include:"
+          echo "  - Unicode character handling"
+          echo "  - Integer boundary values"
+          echo "  - Complex nested object validation"
+          echo "  - Type coercion and strict typing"
+          echo "  - Enum case sensitivity"
+          echo "  - Array vs null validation"
+          echo "  - Deep nested required field validation"
+          echo "  - Special character escaping"
+          echo "  - Very long string handling"
+          echo "  - Conflicting configuration sections"

@@ -1,0 +1,28 @@
+{
+  "name": "Multiple About Sections Invalid",
+  "description": "Integration with multiple conflicting about sections",
+  "integration_type": "orchestrator",
+  "support_level": "community",
+  "status": "prototype",
+  "link_github": false,
+  "update_catalog": false,
+  "about": {
+    "orchestrator": {
+      "UOFramework": "10.0.0"
+    },
+    "dns_provider": {
+      "providerName": "conflicting",
+      "displayName": "Conflicting Provider",
+      "assemblyName": "ConflictingProvider",
+      "fullyQualifiedClassName": "Test.Conflicting",
+      "validationType": "dns-01",
+      "dns_provider_config": []
+    },
+    "pam": {
+      "assemblyName": "ConflictingPam",
+      "providerName": "conflicting_pam",
+      "fullyQualifiedClassName": "Test.ConflictingPam",
+      "dbName": "ConflictingPamDB"
+    }
+  }
+}

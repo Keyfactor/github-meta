@@ -1,0 +1,25 @@
+{
+  "name": "AnyCA Invalid Enum Reference",
+  "description": "AnyCA with invalid enum values in PasswordOptions Style",
+  "integration_type": "anyca-plugin",
+  "support_level": "community",
+  "status": "prototype",
+  "link_github": false,
+  "update_catalog": false,
+  "about": {
+    "carest": {
+      "ca_plugin_config": [
+        {
+          "name": "valid_config",
+          "description": "Valid configuration field"
+        }
+      ],
+      "enrollment_config": [
+        {
+          "name": "invalid_config", 
+          "description": 123
+        }
+      ]
+    }
+  }
+}
