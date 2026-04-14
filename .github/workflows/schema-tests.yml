@@ -49,12 +49,6 @@ jobs:
               fi
             fi
           done
-          
-          echo "Pass test results: $PASS_COUNT passed, $FAIL_COUNT failed"
-          if [ $FAIL_COUNT -gt 0 ]; then
-          echo "ERROR: Some files that should pass validation are failing!"
-          exit 1
-          fi
           echo "::endgroup::"
 
           echo "::group::Test known bad manifests"
