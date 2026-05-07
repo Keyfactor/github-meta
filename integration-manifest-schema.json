@@ -338,9 +338,10 @@
         "pam_types": {
           "description": "Key-value pair of PAM types supported by the integration",
           "type": "object",
-          "additionalProperties": {
-            "$ref": "#/$defs/PamType"
-          }
+          "patternProperties": {
+            "^.":{ "type": "object", "$ref": "#/$defs/PamType" }
+          },
+          "additionalProperties": false
         }
       }
     },
