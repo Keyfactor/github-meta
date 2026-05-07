@@ -1,0 +1,40 @@
+name: "Build integration"
+description: "Build a Keyfactor .NET integration"
+
+inputs:
+  dotnet-versions:
+    description: "Comma-separated list of .NET versions to build against (e.g. '8.0,7.0')"
+    required: false
+    default: |
+      6.0.x
+      8.0.x
+      10.0.x
+  dir:
+    description: "Directory containing the .NET solution or project to build (defaults to repository root)"
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: ${{ inputs.dotnet-versions }}
+        
+    - name: Build integration
+      env:
+        INTEGRATION_DIR: ${{ inputs.dir }}
+      run: |
+        echo "Building Keyfactor integration using dotnet build..."
+        dotnet build $INTEGRATION_DIR --configuration Release --no-restore
+      shell: bash
+    - name: Package integration
+      env:
+        INTEGRATION_DIR: ${{ inputs.dir }}
+      run: |
+        echo "Packing Keyfactor integration using dotnet pack..."
+        dotnet pack $INTEGRATION_DIR --configuration Release --no-build --output ./artifacts
+      shell: bash
